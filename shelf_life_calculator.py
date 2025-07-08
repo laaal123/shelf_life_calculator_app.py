@@ -6,9 +6,9 @@ from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score
 
 st.set_page_config(layout="wide")
-st.title("📈 Shelf-Life Calculator from Stability Data (ICH Based)")
+st.title("\U0001F4C8 Shelf-Life Calculator from Stability Data (ICH Based)")
 
-st.markdown("### 📂 Upload CSV File or Enter Data Manually")
+st.markdown("### \U0001F4C2 Upload CSV File or Enter Data Manually")
 
 uploaded_file = st.file_uploader(
     "Upload CSV with columns: Time, Condition, Parameter, Value",
@@ -29,7 +29,7 @@ if uploaded_file is not None:
         st.error(f"Error loading CSV: {e}")
 
 elif manual_input:
-    st.markdown("### 📝 Manual Input Table")
+    st.markdown("### \u270D\ufe0f Manual Input Table")
     with st.form("manual_form"):
         condition = st.selectbox("Stability Condition", ["25C_60RH", "30C_65RH", "40C_75RH"])
         param_name = st.text_input("Parameter Name (e.g., Assay)", "Assay")
@@ -59,11 +59,35 @@ elif manual_input:
                 st.error("Invalid format. Please enter numbers only.")
 
 if not data.empty:
-    st.markdown("### 👁️ Data Preview")
+    st.markdown("### \U0001F441\ufe0f Data Preview")
     st.dataframe(data)
 
+    def estimate_shelf_life_ich(acc_stable: bool,
+                                int_stable: bool,
+                                long_term_behavior: str,
+                                stats_done: bool,
+                                long_term_months: int,
+                                is_refrigerated: bool = False):
+        if not acc_stable:
+            return long_term_months  # No extrapolation
+
+        if not int_stable:
+            return long_term_months  # Intermediate condition fails
+
+        if long_term_behavior == 'no_change':
+            max_extrapolation = 12
+        elif long_term_behavior == 'change_with_stats' and stats_done:
+            max_extrapolation = 12
+        else:
+            max_extrapolation = 3
+
+        if is_refrigerated:
+            max_extrapolation = min(max_extrapolation, 6)
+
+        return min(long_term_months + max_extrapolation, 2 * long_term_months)
+
     for (condition, param), df_group in data.groupby(["Condition", "Parameter"]):
-        st.markdown(f"#### 📊 Regression for: {param} under {condition}")
+        st.markdown(f"#### \U0001F4CA Regression for: {param} under {condition}")
         df = df_group.sort_values("Time")
 
         X = df["Time"].values.reshape(-1, 1)
@@ -76,13 +100,10 @@ if not data.empty:
         intercept = model.intercept_
         r2 = r2_score(y, pred)
 
-        st.markdown("**📏 Shelf-Life Estimation**")
+        st.markdown("**\U0001F4CF Shelf-Life Estimation**")
 
-        # Determine initial threshold:
-        # Use manual_spec_limits dict if available, else default 85
         default_threshold = manual_spec_limits.get((param, condition), 85.0)
 
-        # Checkbox to override spec limit manually
         manual_spec_limit = st.checkbox(
             f"Set specification limit manually for {param} under {condition}?",
             key=f"manual_spec_limit_{param}_{condition}"
@@ -96,7 +117,6 @@ if not data.empty:
         else:
             threshold = default_threshold
 
-        # Plot with horizontal line for specification limit
         fig, ax = plt.subplots(figsize=(6, 4))
         ax.scatter(X, y, label="Observed", color="blue")
         ax.plot(X, pred, label=f"Regression (R²={r2:.3f})", color="red")
@@ -108,13 +128,12 @@ if not data.empty:
         ax.grid(True)
         st.pyplot(fig)
 
-        # Shelf-life calculation & ICH evaluation
         if slope != 0:
             est_time = (threshold - intercept) / slope
             if est_time > 0:
                 st.success(f"Estimated shelf-life for {param} at {condition}: **{est_time:.2f} months**")
 
-                st.markdown("**📘 ICH Evaluation**")
+                st.markdown("**\U0001F4D8 ICH Evaluation**")
                 if r2 >= 0.95:
                     st.info("The regression model shows strong correlation (R² ≥ 0.95) as per ICH guidelines.")
                 else:
@@ -126,14 +145,21 @@ if not data.empty:
                     st.warning("Less than 3 timepoints detected — not suitable for ICH shelf-life justification.")
 
                 if condition.startswith("40"):
-                    st.info("Accelerated data used. Extrapolation allowed if no significant change and supported by long-term data.")
+                    extrapolated_months = estimate_shelf_life_ich(
+                        acc_stable=True,
+                        int_stable=True,
+                        long_term_behavior='change_with_stats' if r2 >= 0.95 else 'change_no_stats',
+                        stats_done=r2 >= 0.95,
+                        long_term_months=int(max(df["Time"])),
+                        is_refrigerated=False
+                    )
+                    st.info(f"Accelerated data used. Suggested shelf-life by ICH logic: {extrapolated_months} months")
                 elif condition.startswith("25") or condition.startswith("30"):
                     st.info("Long-term condition. Shelf-life based directly on observed trends.")
             else:
                 st.warning("Regression indicates value is already below threshold.")
         else:
             st.error("Slope is zero; cannot compute shelf-life.")
-
 else:
     st.info("Upload a CSV or enter data manually to begin.")
 
