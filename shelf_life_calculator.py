@@ -62,29 +62,16 @@ if not data.empty:
     st.markdown("### \U0001F441\ufe0f Data Preview")
     st.dataframe(data)
 
-    def estimate_shelf_life_ich(acc_stable: bool,
-                                int_stable: bool,
-                                long_term_behavior: str,
-                                stats_done: bool,
-                                long_term_months: int,
-                                is_refrigerated: bool = False):
-        if not acc_stable:
-            return long_term_months  # No extrapolation
-
-        if not int_stable:
-            return long_term_months  # Intermediate condition fails
-
-        if long_term_behavior == 'no_change':
-            max_extrapolation = 12
-        elif long_term_behavior == 'change_with_stats' and stats_done:
-            max_extrapolation = 12
+    def estimate_shelf_life_ich(x, refrigerated=False, stats=False, support_data=False):
+        if stats and support_data:
+            y = min(2 * x, x + 12) if not refrigerated else min(1.5 * x, x + 6)
+        elif support_data:
+            y = min(1.5 * x, x + 6) if not refrigerated else min(x + 3, x + 3)
+        elif stats:
+            y = min(1.5 * x, x + 6) if not refrigerated else min(x + 3, x + 3)
         else:
-            max_extrapolation = 3
-
-        if is_refrigerated:
-            max_extrapolation = min(max_extrapolation, 6)
-
-        return min(long_term_months + max_extrapolation, 2 * long_term_months)
+            y = x  # No extrapolation
+        return y
 
     for (condition, param), df_group in data.groupby(["Condition", "Parameter"]):
         st.markdown(f"#### \U0001F4CA Regression for: {param} under {condition}")
@@ -134,34 +121,21 @@ if not data.empty:
                 st.success(f"Estimated shelf-life for {param} at {condition}: **{est_time:.2f} months**")
 
                 st.markdown("**\U0001F4D8 ICH Evaluation**")
-                if r2 >= 0.95:
-                    st.info("The regression model shows strong correlation (R² ≥ 0.95) as per ICH guidelines.")
-                    stats_done = True
-                else:
-                    st.warning("The regression model shows weak correlation (R² < 0.95), may not meet ICH criteria.")
-                    stats_done = False
+                support_data = st.checkbox(f"Backed by supporting data for {param} under {condition}?", key=f"support_{param}_{condition}")
+                stats = r2 >= 0.95
+                st.info(f"Statistical correlation (R²): {r2:.3f} {'✅' if stats else '❌'}")
 
                 if df.shape[0] >= 3 and len(set(df["Time"])) >= 3:
-                    st.success("Meets minimum ICH timepoint requirement for shelf-life estimation (≥3 distinct timepoints).")
+                    st.success("✔ Meets ICH minimum 3 timepoints requirement.")
                 else:
-                    st.warning("Less than 3 timepoints detected — not suitable for ICH shelf-life justification.")
+                    st.warning("✖ Not enough timepoints for ICH-based extrapolation.")
 
-                long_term_behavior = 'change_with_stats' if stats_done else 'change_no_stats'
+                is_refrigerated = condition.startswith("5") or "refrig" in condition.lower()
+                ich_extrapolated = estimate_shelf_life_ich(est_time, refrigerated=is_refrigerated, stats=stats, support_data=support_data)
 
-                if condition.startswith("40"):
-                    ich_shelf = estimate_shelf_life_ich(
-                        acc_stable=True,
-                        int_stable=True,
-                        long_term_behavior=long_term_behavior,
-                        stats_done=stats_done,
-                        long_term_months=int(max(df["Time"])),
-                        is_refrigerated=False
-                    )
-                    st.info(f"ICH-based extrapolated shelf-life: **{ich_shelf:.2f} months**")
-                elif condition.startswith("25") or condition.startswith("30"):
-                    st.info("Long-term condition. Shelf-life based directly on observed trends.")
+                st.info(f"📊 ICH-based extrapolated shelf-life: **{ich_extrapolated:.2f} months**")
             else:
-                st.warning("Regression indicates value is already below threshold.")
+                st.warning("Regression suggests value is already below the threshold.")
         else:
             st.error("Slope is zero; cannot compute shelf-life.")
 else:
@@ -169,3 +143,4 @@ else:
 
 st.markdown("---")
 st.markdown("Built for Stability Analysis | Pharma Quality Tools")
+
