@@ -9,9 +9,9 @@ import tempfile
 import os
 
 st.set_page_config(layout="wide")
-st.title("\U0001F4C8 Shelf-Life Calculator from Stability Data (ICH Based)")
+st.title("📈 Shelf-Life Calculator from Stability Data (ICH Based)")
 
-st.markdown("### \U0001F4C2 Upload CSV File or Enter Data Manually")
+st.markdown("### 📂 Upload CSV File or Enter Data Manually")
 
 uploaded_file = st.file_uploader(
     "Upload CSV with columns: Time, Condition, Parameter, Value",
@@ -33,13 +33,13 @@ if uploaded_file is not None:
         st.error(f"Error loading CSV: {e}")
 
 elif manual_input:
-    st.markdown("### \u270D\ufe0f Manual Input Table")
+    st.markdown("### 📝 Manual Input Table")
     with st.form("manual_form"):
         condition = st.selectbox("Stability Condition", ["25C_60RH", "30C_65RH", "40C_75RH"])
         param_name = st.text_input("Parameter Name (e.g., Assay)", "Assay")
         timepoints = st.text_area("Enter Time Points (comma-separated)", "0,1,3,6,9,12")
         values = st.text_area("Enter Values (comma-separated)", "100,98,95,92,90,88")
-        spec_limit = st.number_input("Specification Limit for Shelf Life Calculation (cross limit lower or upper)", value=85.0, step=0.1)
+        spec_limit = st.number_input("Specification Limit for Shelf Life Calculation", value=85.0, step=0.1)
         submit = st.form_submit_button("Add to Dataset")
 
         if submit:
@@ -61,35 +61,36 @@ elif manual_input:
             except:
                 st.error("Invalid format. Please enter numbers only.")
 
+# Define ICH shelf-life extrapolation logic
+def estimate_shelf_life_ich(y, x, stats=False, support_data=False, refrigerated=False):
+    if stats and support_data:
+        return min(2 * x, x + 12) if not refrigerated else min(1.5 * x, x + 6)
+    elif support_data:
+        return min(1.5 * x, x + 6) if not refrigerated else min(x + 3, x + 3)
+    elif stats:
+        return min(1.5 * x, x + 6) if not refrigerated else min(x + 3, x + 3)
+    else:
+        return x
+
 if not data.empty:
-    st.markdown("### \U0001F441\ufe0f Data Preview")
+    st.markdown("### 👁️ Data Preview")
     st.dataframe(data)
 
-    def estimate_shelf_life_ich(y, stats=False, support_data=False, refrigerated=False):
-        if stats and support_data:
-            return min(2 * x, x + 12) if not refrigerated else min(1.5 * x, x + 6)
-        elif support_data:
-            return min(1.5 * x, x + 6) if not refrigerated else min(x + 3, x + 3)
-        elif stats:
-            return min(1.5 * x, x + 6) if not refrigerated else min(x + 3, x + 3)
-        else:
-            return x
-
     for (condition, param), df_group in data.groupby(["Condition", "Parameter"]):
-        st.markdown(f"#### \U0001F4CA Regression for: {param} under {condition}")
+        st.markdown(f"#### 📊 Regression for: {param} under {condition}")
         df = df_group.sort_values("Time")
 
         X = df["Time"].values.reshape(-1, 1)
-        y = df["Value"].values
+        y_values = df["Value"].values
 
         model = LinearRegression()
-        model.fit(X, y)
+        model.fit(X, y_values)
         pred = model.predict(X)
         slope = model.coef_[0]
         intercept = model.intercept_
-        r2 = r2_score(y, pred)
+        r2 = r2_score(y_values, pred)
 
-        st.markdown("**\U0001F4CF Shelf-Life Estimation**")
+        st.markdown("**📏 Shelf-Life Estimation**")
         default_threshold = manual_spec_limits.get((param, condition), 85.0)
 
         manual_spec_limit = st.checkbox(
@@ -105,8 +106,9 @@ if not data.empty:
         else:
             threshold = default_threshold
 
+        # Plotting
         fig, ax = plt.subplots(figsize=(6, 4))
-        ax.scatter(X, y, label="Observed", color="blue")
+        ax.scatter(X, y_values, label="Observed", color="blue")
         ax.plot(X, pred, label=f"Regression (R²={r2:.3f})", color="red")
         ax.axhline(y=threshold, color="green", linestyle="--", label=f"Spec Limit = {threshold}")
         ax.set_title(f"{param} vs Time ({condition})")
@@ -125,35 +127,35 @@ if not data.empty:
             if est_time > 0:
                 st.success(f"Estimated shelf-life for {param} at {condition}: **{est_time:.2f} months**")
 
-                st.markdown("**\U0001F4D8 ICH Evaluation**")
+                st.markdown("**📘 ICH Evaluation**")
 
-                stats = r2 >= 0.95
                 support_data = st.checkbox(f"Is there supporting data for {param} under {condition}?", key=f"support_{param}_{condition}")
                 refrigerated = st.checkbox(f"Is the product stored refrigerated for {param} under {condition}?", key=f"refrig_{param}_{condition}")
+                stats = r2 >= 0.95
+                max_time = max(df["Time"])
 
-                                x_long_term = max(df["Time"])
-                extrapolated = estimate_shelf_life_ich(x_long_term, stats, support_data, refrigerated)
+                ich_shelf = estimate_shelf_life_ich(est_time, max_time, stats, support_data, refrigerated)
 
                 result = {
                     "Parameter": param,
                     "Condition": condition,
                     "R2": round(r2, 3),
                     "Estimated Shelf Life": round(est_time, 2),
-                    "ICH Shelf Life (max)": round(extrapolated, 2)
+                    "ICH Shelf Life (max)": round(ich_shelf, 2)
                 }
 
                 results_summary.append(result)
 
                 st.info(f"R² = {r2:.2f} {'✅' if stats else '❌'} | Supporting data: {'✅' if support_data else '❌'} | Refrigerated: {'✅' if refrigerated else '❌'}")
-                st.success(f"\U0001F4C9 ICH-Extrapolated Shelf-Life: **{extrapolated:.2f} months**")
+                st.success(f"📉 ICH-Extrapolated Shelf-Life: **{ich_shelf:.2f} months**")
             else:
                 st.warning("Regression suggests value is already below the threshold.")
         else:
             st.error("Slope is zero; cannot compute shelf-life.")
 
-    # Export Summary PDF
+    # PDF export
     if results_summary:
-        if st.button("\U0001F4BE Download Combined Report as PDF"):
+        if st.button("💾 Download Combined Report as PDF"):
             pdf = FPDF()
             pdf.set_auto_page_break(auto=True, margin=15)
             pdf.add_page()
@@ -175,7 +177,7 @@ if not data.empty:
             with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as f:
                 pdf.output(f.name)
                 st.download_button(
-                    label="\U0001F4C4 Download PDF Report",
+                    label="📄 Download PDF Report",
                     data=open(f.name, "rb").read(),
                     file_name="Stability_Report.pdf",
                     mime="application/pdf"
@@ -185,4 +187,5 @@ else:
 
 st.markdown("---")
 st.markdown("Built for Stability Analysis | Pharma Quality Tools")
+
 
