@@ -13,7 +13,7 @@ st.markdown("### 📂 Upload CSV File or Enter Data Manually")
 uploaded_file = st.file_uploader("Upload CSV with columns: Time, Condition, Parameter, Value", type=["csv"])
 manual_input = st.checkbox("Or Enter Data Manually")
 
-# Initialize DataFrame
+# Initialize empty DataFrame
 data = pd.DataFrame(columns=["Time", "Condition", "Parameter", "Value"])
 
 if uploaded_file is not None:
@@ -45,11 +45,11 @@ elif manual_input:
             except:
                 st.error("Invalid format. Please enter numbers only.")
 
-# Show data preview
 if not data.empty:
     st.markdown("### 👁️ Data Preview")
     st.dataframe(data)
 
+    # Loop through each condition & parameter group
     for (condition, param), df_group in data.groupby(["Condition", "Parameter"]):
         st.markdown(f"#### 📊 Regression for: {param} under {condition}")
         df = df_group.sort_values("Time")
@@ -76,76 +76,51 @@ if not data.empty:
 
         st.markdown("**📏 Shelf-Life Estimation**")
 
-# Add a checkbox for manual threshold input
-manual_spec_limit = st.checkbox(
-    f"Set specification limit manually for {param} under {condition}?", 
-    key=f"manual_spec_limit_{param}_{condition}"
-)
+        # Checkbox to manually set specification limit
+        manual_spec_limit = st.checkbox(
+            f"Set specification limit manually for {param} under {condition}?",
+            key=f"manual_spec_limit_{param}_{condition}"
+        )
 
-if manual_spec_limit:
-    threshold = st.number_input(
-        f"Enter specification limit for {param} under {condition}",
-        value=85.0,
-        key=f"thresh_manual_{param}_{condition}"
-    )
+        if manual_spec_limit:
+            threshold = st.number_input(
+                f"Enter specification limit for {param} under {condition}",
+                value=85.0,
+                key=f"thresh_manual_{param}_{condition}"
+            )
+        else:
+            threshold = 85.0  # Default threshold if not set manually
+
+        # Shelf-life calculation and evaluations
+        if slope != 0:
+            est_time = (threshold - intercept) / slope
+            if est_time > 0:
+                st.success(f"Estimated shelf-life for {param} at {condition}: **{est_time:.2f} months**")
+
+                st.markdown("**📘 ICH Evaluation**")
+                if r2 >= 0.95:
+                    st.info("The regression model shows strong correlation (R² ≥ 0.95) as per ICH guidelines.")
+                else:
+                    st.warning("The regression model shows weak correlation (R² < 0.95), may not meet ICH criteria.")
+
+                if df.shape[0] >= 3 and len(set(df["Time"])) >= 3:
+                    st.success("Meets minimum ICH timepoint requirement for shelf-life estimation (≥3 distinct timepoints).")
+                else:
+                    st.warning("Less than 3 timepoints detected — not suitable for ICH shelf-life justification.")
+
+                if condition.startswith("40"):
+                    st.info("Accelerated data used. Extrapolation allowed if no significant change and supported by long-term data.")
+                elif condition.startswith("25") or condition.startswith("30"):
+                    st.info("Long-term condition. Shelf-life based directly on observed trends.")
+
+            else:
+                st.warning("Regression indicates value is already below threshold.")
+        else:
+            st.error("Slope is zero; cannot compute shelf-life.")
 else:
-    threshold = 85.0  # default value
-
-if slope != 0:
-    est_time = (threshold - intercept) / slope
-    if est_time > 0:
-        st.success(f"Estimated shelf-life for {param} at {condition}: **{est_time:.2f} months**")
-
-        st.markdown("**📘 ICH Evaluation**")
-        if r2 >= 0.95:
-            st.info("The regression model shows strong correlation (R² ≥ 0.95) as per ICH guidelines.")
-        else:
-            st.warning("The regression model shows weak correlation (R² < 0.95), may not meet ICH criteria.")
-
-        if df.shape[0] >= 3 and len(set(df["Time"])) >= 3:
-            st.success("Meets minimum ICH timepoint requirement for shelf-life estimation (≥3 distinct timepoints).")
-        else:
-            st.warning("Less than 3 timepoints detected — not suitable for ICH shelf-life justification.")
-
-        if condition.startswith("40"):
-            st.info("Accelerated data used. Extrapolation allowed if no significant change and supported by long-term data.")
-        elif condition.startswith("25") or condition.startswith("30"):
-            st.info("Long-term condition. Shelf-life based directly on observed trends.")
-
-    else:
-        st.warning("Regression indicates value is already below threshold.")
-else:
-    st.error("Slope is zero; cannot compute shelf-life.")
-
-         # ICH Decision Tree-based logic (simplified)
-                # ... after plotting code and checkbox for manual spec limit ...
-
-if slope != 0:
-    est_time = (threshold - intercept) / slope
-    if est_time > 0:
-        st.success(f"Estimated shelf-life for {param} at {condition}: **{est_time:.2f} months**")
-
-        st.markdown("**📘 ICH Evaluation**")
-        if r2 >= 0.95:
-            st.info("The regression model shows strong correlation (R² ≥ 0.95) as per ICH guidelines.")
-        else:
-            st.warning("The regression model shows weak correlation (R² < 0.95), may not meet ICH criteria.")
-
-        if df.shape[0] >= 3 and len(set(df["Time"])) >= 3:
-            st.success("Meets minimum ICH timepoint requirement for shelf-life estimation (≥3 distinct timepoints).")
-        else:
-            st.warning("Less than 3 timepoints detected — not suitable for ICH shelf-life justification.")
-
-        if condition.startswith("40"):
-            st.info("Accelerated data used. Extrapolation allowed if no significant change and supported by long-term data.")
-        elif condition.startswith("25") or condition.startswith("30"):
-            st.info("Long-term condition. Shelf-life based directly on observed trends.")
-
-    else:
-        st.warning("Regression indicates value is already below threshold.")
-else:
-    st.error("Slope is zero; cannot compute shelf-life.")
+    st.info("Upload a CSV or enter data manually to begin.")
 
 st.markdown("---")
 st.markdown("Built for Stability Analysis | Pharma Quality Tools")
+
 
