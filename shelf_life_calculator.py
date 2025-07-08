@@ -75,23 +75,48 @@ if not data.empty:
         st.pyplot(fig)
 
         st.markdown("**📏 Shelf-Life Estimation**")
-        threshold = st.number_input(f"Enter Specification Limit for {param} under {condition}", value=85.0, key=f"thresh_{param}_{condition}")
 
-        if slope != 0:
-            est_time = (threshold - intercept) / slope
-            if est_time > 0:
-                st.success(f"Estimated shelf-life for {param} at {condition}: **{est_time:.2f} months**")
+# Add a checkbox for manual threshold input
+manual_spec_limit = st.checkbox(
+    f"Set specification limit manually for {param} under {condition}?", 
+    key=f"manual_spec_limit_{param}_{condition}"
+)
 
-                st.markdown("**📘 ICH Evaluation**")
-                if r2 >= 0.95:
-                    st.info("The regression model shows strong correlation (R² ≥ 0.95) as per ICH guidelines.")
-                else:
-                    st.warning("The regression model shows weak correlation (R² < 0.95), may not meet ICH criteria.")
+if manual_spec_limit:
+    threshold = st.number_input(
+        f"Enter specification limit for {param} under {condition}",
+        value=85.0,
+        key=f"thresh_manual_{param}_{condition}"
+    )
+else:
+    threshold = 85.0  # default value
 
-                if df.shape[0] >= 3 and len(set(df["Time"])) >= 3:
-                    st.success("Meets minimum ICH timepoint requirement for shelf-life estimation (≥3 distinct timepoints).")
-                else:
-                    st.warning("Less than 3 timepoints detected — not suitable for ICH shelf-life justification.")
+if slope != 0:
+    est_time = (threshold - intercept) / slope
+    if est_time > 0:
+        st.success(f"Estimated shelf-life for {param} at {condition}: **{est_time:.2f} months**")
+
+        st.markdown("**📘 ICH Evaluation**")
+        if r2 >= 0.95:
+            st.info("The regression model shows strong correlation (R² ≥ 0.95) as per ICH guidelines.")
+        else:
+            st.warning("The regression model shows weak correlation (R² < 0.95), may not meet ICH criteria.")
+
+        if df.shape[0] >= 3 and len(set(df["Time"])) >= 3:
+            st.success("Meets minimum ICH timepoint requirement for shelf-life estimation (≥3 distinct timepoints).")
+        else:
+            st.warning("Less than 3 timepoints detected — not suitable for ICH shelf-life justification.")
+
+        if condition.startswith("40"):
+            st.info("Accelerated data used. Extrapolation allowed if no significant change and supported by long-term data.")
+        elif condition.startswith("25") or condition.startswith("30"):
+            st.info("Long-term condition. Shelf-life based directly on observed trends.")
+
+    else:
+        st.warning("Regression indicates value is already below threshold.")
+else:
+    st.error("Slope is zero; cannot compute shelf-life.")
+
 
                 # ICH Decision Tree-based logic (simplified)
                 if condition.startswith("40"):
