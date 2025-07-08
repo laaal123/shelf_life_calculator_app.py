@@ -65,10 +65,8 @@ elif manual_input:
 def estimate_shelf_life_ich(x, stats=False, support_data=False, refrigerated=False):
     if stats and support_data:
         return min(2 * x, x + 12) if not refrigerated else min(1.5 * x, x + 6)
-    elif support_data or stats:
+    elif stats or support_data:
         return min(1.5 * x, x + 6) if not refrigerated else x + 3
-    elif not stats and not support_data:
-        return min(x) 
     else:
         return x
 
