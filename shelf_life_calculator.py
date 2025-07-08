@@ -1,4 +1,13 @@
-import streamlit as st import pandas as pd import numpy as np import matplotlib.pyplot as plt from sklearn.linear_model import LinearRegression from sklearn.metrics import r2_score from fpdf import FPDF import tempfile import os from io import BytesIO
+import streamlit as st 
+import pandas as pd 
+import numpy as np 
+import matplotlib.pyplot as plt 
+from sklearn.linear_model import LinearRegression 
+from sklearn.metrics import r2_score 
+from fpdf import FPDF 
+import tempfile 
+import os 
+from io import BytesIO
 
 st.set_page_config(layout="wide") st.title("📈 Shelf-Life Calculator from Stability Data (ICH Based)")
 
