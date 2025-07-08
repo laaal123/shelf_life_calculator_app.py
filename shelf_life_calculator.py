@@ -154,36 +154,41 @@ if not data.empty:
             st.error("Slope is zero; cannot compute shelf-life.")
 
     # PDF export
-    if results_summary:
-        if st.button("💾 Download Combined Report as PDF"):
-            pdf = FPDF()
-            pdf.set_auto_page_break(auto=True, margin=15)
+from io import BytesIO
+
+# PDF export
+if results_summary:
+    if st.button("💾 Download Combined Report as PDF"):
+        pdf = FPDF()
+        pdf.set_auto_page_break(auto=True, margin=15)
+        pdf.add_page()
+        pdf.set_font("Arial", 'B', 16)
+        pdf.cell(0, 10, "Stability Study Summary Report", ln=True, align="C")
+        pdf.ln(10)
+        pdf.set_font("Arial", '', 12)
+
+        for res in results_summary:
+            for key, value in res.items():
+                pdf.cell(0, 8, f"{key}: {value}", ln=True)
+            pdf.ln(4)
+
+        for param, condition, img_path in figures:
             pdf.add_page()
-            pdf.set_font("Arial", 'B', 16)
-            pdf.cell(0, 10, "Stability Study Summary Report", ln=True, align="C")
-            pdf.ln(10)
-            pdf.set_font("Arial", '', 12)
-            for res in results_summary:
-                for key, value in res.items():
-                    pdf.cell(0, 8, f"{key}: {value}", ln=True)
-                pdf.ln(4)
+            pdf.set_font("Arial", 'B', 14)
+            pdf.cell(0, 10, f"Graph for {param} under {condition}", ln=True)
+            pdf.image(img_path, x=10, y=30, w=180)
 
-            for param, condition, img_path in figures:
-                pdf.add_page()
-                pdf.set_font("Arial", 'B', 14)
-                pdf.cell(0, 10, f"Graph for {param} under {condition}", ln=True)
-                pdf.image(img_path, x=10, y=30, w=180)
+        # Write PDF to BytesIO
+        pdf_buffer = BytesIO()
+        pdf.output(pdf_buffer)
+        pdf_buffer.seek(0)
 
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as f:
-                pdf.output(f.name)
-                st.download_button(
-                    label="📄 Download PDF Report",
-                    data=open(f.name, "rb").read(),
-                    file_name="Stability_Report.pdf",
-                    mime="application/pdf"
-                )
-else:
-    st.info("Upload a CSV or enter data manually to begin.")
+        st.download_button(
+            label="📄 Download PDF Report",
+            data=pdf_buffer,
+            file_name="Stability_Report.pdf",
+            mime="application/pdf"
+        )
 
 st.markdown("---")
 st.markdown("Built for Stability Analysis | Pharma Quality Tools")
