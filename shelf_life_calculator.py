@@ -65,7 +65,7 @@ elif manual_input:
                 st.error("Invalid format. Please enter numbers only.")
 
 # Define ICH shelf-life extrapolation logic with comments and formula string
-def estimate_shelf_life_ich(x, stats=False, support_data=False, refrigerated=False, failure_month=None):
+def estimate_shelf_life_ich(y, x, stats=False, support_data=False, refrigerated=False, failure_month=None):
     formula = ""
     # If product failed within study duration, shelf life = failure month
     if failure_month is not None and failure_month <= x:
