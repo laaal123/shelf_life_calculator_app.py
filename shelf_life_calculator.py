@@ -9,7 +9,9 @@ import tempfile
 import os 
 from io import BytesIO
 
-st.set_page_config(layout="wide") st.title("📈 Shelf-Life Calculator from Stability Data (ICH Based)")
+st.set_page_config(layout="wide")
+
+st.title("📈 Shelf-Life Calculator from Stability Data (ICH Based)")
 
 st.markdown("### 📂 Upload CSV File or Enter Data Manually")
 
