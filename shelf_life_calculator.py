@@ -85,8 +85,8 @@ def estimate_shelf_life_ich(x, stats=False, support_data=False, refrigerated=Fal
             formula = "x + 3  # ICH Case 4"
             return x + 3, formula
         else:
-            formula = "min(1.5 * x, x )  # ICH Case 3"
-            return min(1.5 * x, x), formula
+            formula = "min(1 * x, x )  # ICH Case 3"
+            return min(1 * x, x), formula
     # ICH Case 5: No Stats or Support Data
     else:
         formula = "x  # ICH Case 5"
