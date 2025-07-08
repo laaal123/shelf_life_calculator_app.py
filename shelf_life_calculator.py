@@ -131,15 +131,17 @@ if not data.empty:
                 support_data = st.checkbox(f"Is there supporting data for {param} under {condition}?", key=f"support_{param}_{condition}")
                 refrigerated = st.checkbox(f"Is the product stored refrigerated for {param} under {condition}?", key=f"refrig_{param}_{condition}")
 
-                extrapolated = estimate_shelf_life_ich(est_time, stats, support_data, refrigerated)
+                                x_long_term = max(df["Time"])
+                extrapolated = estimate_shelf_life_ich(x_long_term, stats, support_data, refrigerated)
 
                 result = {
                     "Parameter": param,
                     "Condition": condition,
                     "R2": round(r2, 3),
                     "Estimated Shelf Life": round(est_time, 2),
-                    "ICH Shelf Life": round(extrapolated, 2)
+                    "ICH Shelf Life (max)": round(extrapolated, 2)
                 }
+
                 results_summary.append(result)
 
                 st.info(f"R² = {r2:.2f} {'✅' if stats else '❌'} | Supporting data: {'✅' if support_data else '❌'} | Refrigerated: {'✅' if refrigerated else '❌'}")
