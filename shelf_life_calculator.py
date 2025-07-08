@@ -35,7 +35,7 @@ elif manual_input:
         param_name = st.text_input("Parameter Name (e.g., Assay)", "Assay")
         timepoints = st.text_area("Enter Time Points (comma-separated)", "0,1,3,6,9,12")
         values = st.text_area("Enter Values (comma-separated)", "100,98,95,92,90,88")
-        spec_limit = st.number_input("Specification Limit for Shelf Life Calculation", value=85.0, step=0.1)
+        spec_limit = st.number_input("Specification Limit for Shelf Life Calculation", value=85.0-125.0, step=0.1)
         submit = st.form_submit_button("Add to Dataset")
 
         if submit:
