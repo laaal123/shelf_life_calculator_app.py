@@ -105,3 +105,7 @@ if not data.empty:
             st.error("Slope is zero; cannot compute shelf-life.")
 else:
     st.info("Upload a CSV or enter data manually to begin.")
+
+st.markdown("---")
+st.markdown("Built for Stability Analysis | Pharma Quality Tools")
+
