@@ -117,8 +117,7 @@ if slope != 0:
 else:
     st.error("Slope is zero; cannot compute shelf-life.")
 
-
-                # ICH Decision Tree-based logic (simplified)
+         # ICH Decision Tree-based logic (simplified)
                 if condition.startswith("40"):
                     st.info("Accelerated data used. Extrapolation allowed if no significant change and supported by long-term data.")
                 elif condition.startswith("25") or condition.startswith("30"):
