@@ -62,13 +62,34 @@ elif manual_input:
                 st.error("Invalid format. Please enter numbers only.")
 
 # Define ICH shelf-life extrapolation logic
-def estimate_shelf_life_ich(x, stats=False, support_data=False, refrigerated=False):
+import streamlit as st
+
+def estimate_shelf_life_ich(x, stats=False, support_data=False, refrigerated=False, failure_month=None):
+    if failure_month is not None and failure_month <= x:
+        return failure_month
     if stats and support_data:
         return min(2 * x, x + 12) if not refrigerated else min(1.5 * x, x + 6)
     elif stats or support_data:
         return min(1.5 * x, x + 6) if not refrigerated else x + 3
     else:
         return x
+
+st.title("ICH Shelf Life Estimator (Corrected for Failure Handling)")
+
+x = st.number_input("Enter long-term study duration (months)", min_value=0.0, value=12.0)
+stats = st.checkbox("Statistical analysis performed?")
+support_data = st.checkbox("Supportive data available?")
+refrigerated = st.checkbox("Is the product refrigerated?")
+failure = st.checkbox("Did the product fail within study duration?")
+failure_month = None
+
+if failure:
+    failure_month = st.number_input("Enter the failure month (e.g., 9)", min_value=0.0, max_value=x)
+
+if st.button("Estimate Shelf Life"):
+    shelf_life = estimate_shelf_life_ich(x, stats, support_data, refrigerated, failure_month)
+    st.success(f"ICH-Compliant Shelf Life: {shelf_life} months")
+
 
 st.title("ICH Shelf Life Estimator")
 
