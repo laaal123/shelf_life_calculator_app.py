@@ -136,24 +136,28 @@ if not data.empty:
                 st.markdown("**\U0001F4D8 ICH Evaluation**")
                 if r2 >= 0.95:
                     st.info("The regression model shows strong correlation (R² ≥ 0.95) as per ICH guidelines.")
+                    stats_done = True
                 else:
                     st.warning("The regression model shows weak correlation (R² < 0.95), may not meet ICH criteria.")
+                    stats_done = False
 
                 if df.shape[0] >= 3 and len(set(df["Time"])) >= 3:
                     st.success("Meets minimum ICH timepoint requirement for shelf-life estimation (≥3 distinct timepoints).")
                 else:
                     st.warning("Less than 3 timepoints detected — not suitable for ICH shelf-life justification.")
 
+                long_term_behavior = 'change_with_stats' if stats_done else 'change_no_stats'
+
                 if condition.startswith("40"):
-                    extrapolated_months = estimate_shelf_life_ich(
+                    ich_shelf = estimate_shelf_life_ich(
                         acc_stable=True,
                         int_stable=True,
-                        long_term_behavior='change_with_stats' if r2 >= 0.95 else 'change_no_stats',
-                        stats_done=r2 >= 0.95,
+                        long_term_behavior=long_term_behavior,
+                        stats_done=stats_done,
                         long_term_months=int(max(df["Time"])),
                         is_refrigerated=False
                     )
-                    st.info(f"Accelerated data used. Suggested shelf-life by ICH logic: {extrapolated_months} months")
+                    st.info(f"ICH-based extrapolated shelf-life: **{ich_shelf:.2f} months**")
                 elif condition.startswith("25") or condition.startswith("30"):
                     st.info("Long-term condition. Shelf-life based directly on observed trends.")
             else:
@@ -165,5 +169,3 @@ else:
 
 st.markdown("---")
 st.markdown("Built for Stability Analysis | Pharma Quality Tools")
-
-
