@@ -4,6 +4,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score
+from fpdf import FPDF
+import tempfile
+import os
 
 st.set_page_config(layout="wide")
 st.title("\U0001F4C8 Shelf-Life Calculator from Stability Data (ICH Based)")
@@ -18,8 +21,9 @@ manual_input = st.checkbox("Or Enter Data Manually")
 
 # Initialize empty DataFrame
 data = pd.DataFrame(columns=["Time", "Condition", "Parameter", "Value"])
-# Store spec limits for manual input entries keyed by (param, condition)
 manual_spec_limits = {}
+results_summary = []
+figures = []
 
 if uploaded_file is not None:
     try:
@@ -52,7 +56,6 @@ elif manual_input:
                         "Value": vals
                     })
                     data = pd.concat([data, new_data], ignore_index=True)
-                    # Save spec limit keyed by (param, condition)
                     manual_spec_limits[(param_name, condition)] = spec_limit
                     st.success("Data and specification limit added successfully.")
             except:
@@ -62,16 +65,15 @@ if not data.empty:
     st.markdown("### \U0001F441\ufe0f Data Preview")
     st.dataframe(data)
 
-    def estimate_shelf_life_ich(x, refrigerated=False, stats=False, support_data=False):
+    def estimate_shelf_life_ich(x, stats=False, support_data=False, refrigerated=False):
         if stats and support_data:
-            y = min(2 * x, x + 12) if not refrigerated else min(1.5 * x, x + 6)
+            return min(2 * x, x + 12) if not refrigerated else min(1.5 * x, x + 6)
         elif support_data:
-            y = min(1.5 * x, x + 6) if not refrigerated else min(x + 3, x + 3)
+            return min(1.5 * x, x + 6) if not refrigerated else min(x + 3, x + 3)
         elif stats:
-            y = min(1.5 * x, x + 6) if not refrigerated else min(x + 3, x + 3)
+            return min(1.5 * x, x + 6) if not refrigerated else min(x + 3, x + 3)
         else:
-            y = x  # No extrapolation
-        return y
+            return x
 
     for (condition, param), df_group in data.groupby(["Condition", "Parameter"]):
         st.markdown(f"#### \U0001F4CA Regression for: {param} under {condition}")
@@ -88,7 +90,6 @@ if not data.empty:
         r2 = r2_score(y, pred)
 
         st.markdown("**\U0001F4CF Shelf-Life Estimation**")
-
         default_threshold = manual_spec_limits.get((param, condition), 85.0)
 
         manual_spec_limit = st.checkbox(
@@ -115,29 +116,68 @@ if not data.empty:
         ax.grid(True)
         st.pyplot(fig)
 
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
+        fig.savefig(temp_file.name)
+        figures.append((param, condition, temp_file.name))
+
         if slope != 0:
             est_time = (threshold - intercept) / slope
             if est_time > 0:
                 st.success(f"Estimated shelf-life for {param} at {condition}: **{est_time:.2f} months**")
 
                 st.markdown("**\U0001F4D8 ICH Evaluation**")
-                support_data = st.checkbox(f"Backed by supporting data for {param} under {condition}?", key=f"support_{param}_{condition}")
+
                 stats = r2 >= 0.95
-                st.info(f"Statistical correlation (R²): {r2:.3f} {'✅' if stats else '❌'}")
+                support_data = st.checkbox(f"Is there supporting data for {param} under {condition}?", key=f"support_{param}_{condition}")
+                refrigerated = st.checkbox(f"Is the product stored refrigerated for {param} under {condition}?", key=f"refrig_{param}_{condition}")
 
-                if df.shape[0] >= 3 and len(set(df["Time"])) >= 3:
-                    st.success("✔ Meets ICH minimum 3 timepoints requirement.")
-                else:
-                    st.warning("✖ Not enough timepoints for ICH-based extrapolation.")
+                extrapolated = estimate_shelf_life_ich(est_time, stats, support_data, refrigerated)
 
-                is_refrigerated = condition.startswith("5") or "refrig" in condition.lower()
-                ich_extrapolated = estimate_shelf_life_ich(est_time, refrigerated=is_refrigerated, stats=stats, support_data=support_data)
+                result = {
+                    "Parameter": param,
+                    "Condition": condition,
+                    "R2": round(r2, 3),
+                    "Estimated Shelf Life": round(est_time, 2),
+                    "ICH Shelf Life": round(extrapolated, 2)
+                }
+                results_summary.append(result)
 
-                st.info(f"📊 ICH-based extrapolated shelf-life: **{ich_extrapolated:.2f} months**")
+                st.info(f"R² = {r2:.2f} {'✅' if stats else '❌'} | Supporting data: {'✅' if support_data else '❌'} | Refrigerated: {'✅' if refrigerated else '❌'}")
+                st.success(f"\U0001F4C9 ICH-Extrapolated Shelf-Life: **{extrapolated:.2f} months**")
             else:
                 st.warning("Regression suggests value is already below the threshold.")
         else:
             st.error("Slope is zero; cannot compute shelf-life.")
+
+    # Export Summary PDF
+    if results_summary:
+        if st.button("\U0001F4BE Download Combined Report as PDF"):
+            pdf = FPDF()
+            pdf.set_auto_page_break(auto=True, margin=15)
+            pdf.add_page()
+            pdf.set_font("Arial", 'B', 16)
+            pdf.cell(0, 10, "Stability Study Summary Report", ln=True, align="C")
+            pdf.ln(10)
+            pdf.set_font("Arial", '', 12)
+            for res in results_summary:
+                for key, value in res.items():
+                    pdf.cell(0, 8, f"{key}: {value}", ln=True)
+                pdf.ln(4)
+
+            for param, condition, img_path in figures:
+                pdf.add_page()
+                pdf.set_font("Arial", 'B', 14)
+                pdf.cell(0, 10, f"Graph for {param} under {condition}", ln=True)
+                pdf.image(img_path, x=10, y=30, w=180)
+
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as f:
+                pdf.output(f.name)
+                st.download_button(
+                    label="\U0001F4C4 Download PDF Report",
+                    data=open(f.name, "rb").read(),
+                    file_name="Stability_Report.pdf",
+                    mime="application/pdf"
+                )
 else:
     st.info("Upload a CSV or enter data manually to begin.")
 
