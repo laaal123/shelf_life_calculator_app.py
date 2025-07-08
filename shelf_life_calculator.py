@@ -15,8 +15,12 @@ st.title("📈 Shelf-Life Calculator from Stability Data (ICH Based)")
 
 st.markdown("### 📂 Upload CSV File or Enter Data Manually")
 
-uploaded_file = st.file_uploader( "Upload CSV with columns: Time, Condition, Parameter, Value", type=["csv"] ) manual_input = st.checkbox("Or Enter Data Manually")
+uploaded_file = st.file_uploader(
+    "Upload CSV with columns: Time, Condition, Parameter, Value",
+    type=["csv"]
+)
 
+manual_input = st.checkbox("Or Enter Data Manually")
 Initialize empty DataFrame
 
 data = pd.DataFrame(columns=["Time", "Condition", "Parameter", "Value"]) manual_spec_limits = {} results_summary = [] figures = []
