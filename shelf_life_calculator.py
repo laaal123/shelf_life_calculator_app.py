@@ -10,11 +10,16 @@ st.title("📈 Shelf-Life Calculator from Stability Data (ICH Based)")
 
 st.markdown("### 📂 Upload CSV File or Enter Data Manually")
 
-uploaded_file = st.file_uploader("Upload CSV with columns: Time, Condition, Parameter, Value", type=["csv"])
+uploaded_file = st.file_uploader(
+    "Upload CSV with columns: Time, Condition, Parameter, Value",
+    type=["csv"]
+)
 manual_input = st.checkbox("Or Enter Data Manually")
 
 # Initialize empty DataFrame
 data = pd.DataFrame(columns=["Time", "Condition", "Parameter", "Value"])
+# Store spec limits for manual input entries keyed by (param, condition)
+manual_spec_limits = {}
 
 if uploaded_file is not None:
     try:
@@ -30,6 +35,7 @@ elif manual_input:
         param_name = st.text_input("Parameter Name (e.g., Assay)", "Assay")
         timepoints = st.text_area("Enter Time Points (comma-separated)", "0,1,3,6,9,12")
         values = st.text_area("Enter Values (comma-separated)", "100,98,95,92,90,88")
+        spec_limit = st.number_input("Specification Limit for Shelf Life Calculation", value=85.0, step=0.1)
         submit = st.form_submit_button("Add to Dataset")
 
         if submit:
@@ -39,9 +45,16 @@ elif manual_input:
                 if len(tpts) != len(vals):
                     st.error("Time and Value counts must match.")
                 else:
-                    new_data = pd.DataFrame({"Time": tpts, "Condition": condition, "Parameter": param_name, "Value": vals})
+                    new_data = pd.DataFrame({
+                        "Time": tpts,
+                        "Condition": condition,
+                        "Parameter": param_name,
+                        "Value": vals
+                    })
                     data = pd.concat([data, new_data], ignore_index=True)
-                    st.success("Data added successfully.")
+                    # Save spec limit keyed by (param, condition)
+                    manual_spec_limits[(param_name, condition)] = spec_limit
+                    st.success("Data and specification limit added successfully.")
             except:
                 st.error("Invalid format. Please enter numbers only.")
 
@@ -49,7 +62,6 @@ if not data.empty:
     st.markdown("### 👁️ Data Preview")
     st.dataframe(data)
 
-    # Loop through each condition & parameter group
     for (condition, param), df_group in data.groupby(["Condition", "Parameter"]):
         st.markdown(f"#### 📊 Regression for: {param} under {condition}")
         df = df_group.sort_values("Time")
@@ -64,9 +76,31 @@ if not data.empty:
         intercept = model.intercept_
         r2 = r2_score(y, pred)
 
+        st.markdown("**📏 Shelf-Life Estimation**")
+
+        # Determine initial threshold:
+        # Use manual_spec_limits dict if available, else default 85
+        default_threshold = manual_spec_limits.get((param, condition), 85.0)
+
+        # Checkbox to override spec limit manually
+        manual_spec_limit = st.checkbox(
+            f"Set specification limit manually for {param} under {condition}?",
+            key=f"manual_spec_limit_{param}_{condition}"
+        )
+        if manual_spec_limit:
+            threshold = st.number_input(
+                f"Enter specification limit for {param} under {condition}",
+                value=default_threshold,
+                key=f"thresh_manual_{param}_{condition}"
+            )
+        else:
+            threshold = default_threshold
+
+        # Plot with horizontal line for specification limit
         fig, ax = plt.subplots(figsize=(6, 4))
         ax.scatter(X, y, label="Observed", color="blue")
         ax.plot(X, pred, label=f"Regression (R²={r2:.3f})", color="red")
+        ax.axhline(y=threshold, color="green", linestyle="--", label=f"Spec Limit = {threshold}")
         ax.set_title(f"{param} vs Time ({condition})")
         ax.set_xlabel("Time (Months)")
         ax.set_ylabel("Value")
@@ -74,24 +108,7 @@ if not data.empty:
         ax.grid(True)
         st.pyplot(fig)
 
-        st.markdown("**📏 Shelf-Life Estimation**")
-
-        # Checkbox to manually set specification limit
-        manual_spec_limit = st.checkbox(
-            f"Set specification limit manually for {param} under {condition}?",
-            key=f"manual_spec_limit_{param}_{condition}"
-        )
-
-        if manual_spec_limit:
-            threshold = st.number_input(
-                f"Enter specification limit for {param} under {condition}",
-                value=85.0,
-                key=f"thresh_manual_{param}_{condition}"
-            )
-        else:
-            threshold = 85.0  # Default threshold if not set manually
-
-        # Shelf-life calculation and evaluations
+        # Shelf-life calculation & ICH evaluation
         if slope != 0:
             est_time = (threshold - intercept) / slope
             if est_time > 0:
@@ -112,11 +129,11 @@ if not data.empty:
                     st.info("Accelerated data used. Extrapolation allowed if no significant change and supported by long-term data.")
                 elif condition.startswith("25") or condition.startswith("30"):
                     st.info("Long-term condition. Shelf-life based directly on observed trends.")
-
             else:
                 st.warning("Regression indicates value is already below threshold.")
         else:
             st.error("Slope is zero; cannot compute shelf-life.")
+
 else:
     st.info("Upload a CSV or enter data manually to begin.")
 
