@@ -65,7 +65,7 @@ if not data.empty:
     st.markdown("### \U0001F441\ufe0f Data Preview")
     st.dataframe(data)
 
-    def estimate_shelf_life_ich(x, stats=False, support_data=False, refrigerated=False):
+    def estimate_shelf_life_ich(y, stats=False, support_data=False, refrigerated=False):
         if stats and support_data:
             return min(2 * x, x + 12) if not refrigerated else min(1.5 * x, x + 6)
         elif support_data:
