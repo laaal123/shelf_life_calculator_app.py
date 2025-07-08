@@ -21,7 +21,9 @@ uploaded_file = st.file_uploader(
 )
 
 manual_input = st.checkbox("Or Enter Data Manually")
-Initialize empty DataFrame
+# Initialize empty DataFrame
+# Define shelf life logic
+# Plotting
 
 data = pd.DataFrame(columns=["Time", "Condition", "Parameter", "Value"]) manual_spec_limits = {} results_summary = [] figures = []
 
