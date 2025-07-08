@@ -118,17 +118,33 @@ else:
     st.error("Slope is zero; cannot compute shelf-life.")
 
          # ICH Decision Tree-based logic (simplified)
-                if condition.startswith("40"):
-                    st.info("Accelerated data used. Extrapolation allowed if no significant change and supported by long-term data.")
-                elif condition.startswith("25") or condition.startswith("30"):
-                    st.info("Long-term condition. Shelf-life based directly on observed trends.")
+                # ... after plotting code and checkbox for manual spec limit ...
 
-            else:
-                st.warning("Regression indicates value is already below threshold.")
+if slope != 0:
+    est_time = (threshold - intercept) / slope
+    if est_time > 0:
+        st.success(f"Estimated shelf-life for {param} at {condition}: **{est_time:.2f} months**")
+
+        st.markdown("**📘 ICH Evaluation**")
+        if r2 >= 0.95:
+            st.info("The regression model shows strong correlation (R² ≥ 0.95) as per ICH guidelines.")
         else:
-            st.error("Slope is zero; cannot compute shelf-life.")
+            st.warning("The regression model shows weak correlation (R² < 0.95), may not meet ICH criteria.")
+
+        if df.shape[0] >= 3 and len(set(df["Time"])) >= 3:
+            st.success("Meets minimum ICH timepoint requirement for shelf-life estimation (≥3 distinct timepoints).")
+        else:
+            st.warning("Less than 3 timepoints detected — not suitable for ICH shelf-life justification.")
+
+        if condition.startswith("40"):
+            st.info("Accelerated data used. Extrapolation allowed if no significant change and supported by long-term data.")
+        elif condition.startswith("25") or condition.startswith("30"):
+            st.info("Long-term condition. Shelf-life based directly on observed trends.")
+
+    else:
+        st.warning("Regression indicates value is already below threshold.")
 else:
-    st.info("Upload a CSV or enter data manually to begin.")
+    st.error("Slope is zero; cannot compute shelf-life.")
 
 st.markdown("---")
 st.markdown("Built for Stability Analysis | Pharma Quality Tools")
