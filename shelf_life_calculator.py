@@ -7,6 +7,7 @@ from sklearn.metrics import r2_score
 from fpdf import FPDF
 import tempfile
 import os
+from io import BytesIO
 
 st.set_page_config(layout="wide")
 st.title("📈 Shelf-Life Calculator from Stability Data (ICH Based)")
@@ -62,8 +63,6 @@ elif manual_input:
                 st.error("Invalid format. Please enter numbers only.")
 
 # Define ICH shelf-life extrapolation logic
-import streamlit as st
-
 def estimate_shelf_life_ich(x, stats=False, support_data=False, refrigerated=False, failure_month=None):
     if failure_month is not None and failure_month <= x:
         return failure_month
@@ -73,36 +72,6 @@ def estimate_shelf_life_ich(x, stats=False, support_data=False, refrigerated=Fal
         return min(1.5 * x, x + 6) if not refrigerated else x + 3
     else:
         return x
-
-st.title("ICH Shelf Life Estimator (Corrected for Failure Handling)")
-
-x = st.number_input("Enter long-term study duration (months)", min_value=0.0, value=12.0)
-stats = st.checkbox("Statistical analysis performed?")
-support_data = st.checkbox("Supportive data available?")
-refrigerated = st.checkbox("Is the product refrigerated?")
-failure = st.checkbox("Did the product fail within study duration?")
-failure_month = None
-
-if failure:
-    failure_month = st.number_input("Enter the failure month (e.g., 9)", min_value=0.0, max_value=x)
-
-if st.button("Estimate Shelf Life"):
-    shelf_life = estimate_shelf_life_ich(x, stats, support_data, refrigerated, failure_month)
-    st.success(f"ICH-Compliant Shelf Life: {shelf_life} months")
-
-
-st.title("ICH Shelf Life Estimator")
-
-x = st.number_input("Enter base shelf life (in months)", min_value=0.0, value=12.0)
-
-stats = st.checkbox("Statistical analysis done?")
-support_data = st.checkbox("Supportive data available?")
-refrigerated = st.checkbox("Is the product refrigerated?")
-
-if st.button("Estimate Shelf Life"):
-    result = estimate_shelf_life_ich(x, stats, support_data, refrigerated)
-    st.success(f"Estimated Shelf Life: {result} months")
-
 
 if not data.empty:
     st.markdown("### 👁️ Data Preview")
@@ -161,14 +130,22 @@ if not data.empty:
 
                 st.markdown("**📘 ICH Evaluation**")
 
-                support_data = st.checkbox(f"Is there supporting data for {param} under {condition}?", key=f"support_{param}_{condition}")
-                refrigerated = st.checkbox(f"Is the product stored refrigerated for {param} under {condition}?", key=f"refrig_{param}_{condition}")
-                stats = r2 >= 0.95
-                max_time = max(df["Time"])
+                support_data_flag = st.checkbox(f"Is there supporting data for {param} under {condition}?", key=f"support_{param}_{condition}")
+                refrigerated_flag = st.checkbox(f"Is the product stored refrigerated for {param} under {condition}?", key=f"refrig_{param}_{condition}")
+                failure_flag = st.checkbox(f"Did the product fail during study for {param} under {condition}?", key=f"fail_{param}_{condition}")
+                failure_month = None
+                if failure_flag:
+                    failure_month = st.number_input(f"Enter failure month for {param} under {condition}", min_value=0.0, max_value=est_time, key=f"failmonth_{param}_{condition}")
 
-          
-                ich_shelf = estimate_shelf_life_ich(est_time, stats=stats, support_data=support_data, refrigerated=refrigerated)
+                stats_flag = r2 >= 0.95
 
+                ich_shelf = estimate_shelf_life_ich(
+                    x=est_time,
+                    stats=stats_flag,
+                    support_data=support_data_flag,
+                    refrigerated=refrigerated_flag,
+                    failure_month=failure_month
+                )
 
                 result = {
                     "Parameter": param,
@@ -180,19 +157,16 @@ if not data.empty:
 
                 results_summary.append(result)
 
-                st.info(f"R² = {r2:.2f} {'✅' if stats else '❌'} | Supporting data: {'✅' if support_data else '❌'} | Refrigerated: {'✅' if refrigerated else '❌'}")
+                st.info(f"R² = {r2:.2f} {'✅' if stats_flag else '❌'} | Supporting data: {'✅' if support_data_flag else '❌'} | Refrigerated: {'✅' if refrigerated_flag else '❌'}")
                 st.success(f"📉 ICH-Extrapolated Shelf-Life: **{ich_shelf:.2f} months**")
             else:
                 st.warning("Regression suggests value is already below the threshold.")
         else:
             st.error("Slope is zero; cannot compute shelf-life.")
 
-    # PDF export
-from io import BytesIO
-
 # PDF export
 if results_summary:
-    if st.button("💾 Download Combined Report as PDF"):
+    if st.button("📂 Download Combined Report as PDF"):
         pdf = FPDF()
         pdf.set_auto_page_break(auto=True, margin=15)
         pdf.add_page()
@@ -212,7 +186,6 @@ if results_summary:
             pdf.cell(0, 10, f"Graph for {param} under {condition}", ln=True)
             pdf.image(img_path, x=10, y=30, w=180)
 
-        # Write PDF to BytesIO
         pdf_buffer = BytesIO()
         pdf.output(pdf_buffer)
         pdf_buffer.seek(0)
