@@ -70,7 +70,7 @@ def estimate_shelf_life_ich(x, stats=False, support_data=False, refrigerated=Fal
     # If product failed within study duration, shelf life = failure month
     if failure_month is not None and failure_month <= x:
         formula = f"Product failed at {failure_month} months"
-        return failure_month, formula
+        return failure_month, x
     # ICH Case 1: Stats and Support Data, Not Refrigerated
     if stats and support_data:
         if refrigerated:
