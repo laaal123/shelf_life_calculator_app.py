@@ -62,15 +62,26 @@ elif manual_input:
                 st.error("Invalid format. Please enter numbers only.")
 
 # Define ICH shelf-life extrapolation logic
-def estimate_shelf_life_ich(y, x, stats=False, support_data=False, refrigerated=False):
+def estimate_shelf_life_ich(x, stats=False, support_data=False, refrigerated=False):
     if stats and support_data:
         return min(2 * x, x + 12) if not refrigerated else min(1.5 * x, x + 6)
-    elif support_data:
-        return min(1.5 * x, x + 6) if not refrigerated else min(x + 3, x + 3)
-    elif stats:
-        return min(1.5 * x, x + 6) if not refrigerated else min(x + 3, x + 3)
+    elif support_data or stats:
+        return min(1.5 * x, x + 6) if not refrigerated else x + 3
     else:
         return x
+
+st.title("ICH Shelf Life Estimator")
+
+x = st.number_input("Enter base shelf life (in months)", min_value=0.0, value=12.0)
+
+stats = st.checkbox("Statistical analysis done?")
+support_data = st.checkbox("Supportive data available?")
+refrigerated = st.checkbox("Is the product refrigerated?")
+
+if st.button("Estimate Shelf Life"):
+    result = estimate_shelf_life_ich(x, stats, support_data, refrigerated)
+    st.success(f"Estimated Shelf Life: {result} months")
+
 
 if not data.empty:
     st.markdown("### 👁️ Data Preview")
