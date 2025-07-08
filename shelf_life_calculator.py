@@ -145,7 +145,9 @@ if not data.empty:
                 stats = r2 >= 0.95
                 max_time = max(df["Time"])
 
-                ich_shelf = estimate_shelf_life_ich(est_time, max_time, stats, support_data, refrigerated)
+          
+                ich_shelf = estimate_shelf_life_ich(est_time, stats=stats, support_data=support_data, refrigerated=refrigerated)
+
 
                 result = {
                     "Parameter": param,
