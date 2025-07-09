@@ -152,30 +152,78 @@ if st.button("📊 Calculate Shelf-Life"):
         for k, v in ich_result.items():
             st.write(f"**{k}**: {v}")
 
-        # PDF Export
-        if st.button("📄 Download PDF Report"):
-            pdf = FPDF()
-            pdf.add_page()
-            pdf.set_font("Arial", size=12)
-            pdf.cell(200, 10, txt="Shelf-Life Report", ln=1, align="C")
-            pdf.ln(5)
-            pdf.cell(200, 10, txt=f"Parameter: {param}", ln=1)
-            pdf.cell(200, 10, txt=f"R²: {r2:.2f}", ln=1)
-            if est_shelf_life:
-                pdf.cell(200, 10, txt=f"Estimated Shelf-Life: {est_shelf_life:.2f} months", ln=1)
-            pdf.cell(200, 10, txt="ICH Decision Summary:", ln=1)
-            for k, v in ich_result.items():
-                pdf.cell(200, 10, txt=f"{k}: {v}", ln=1)
+      # --- Export PDF ---
+import io
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image as PDFImage
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib import colors
+from reportlab.lib.units import inch
 
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as f:
-                pdf.output(f.name)
-                with open(f.name, "rb") as file:
-                    st.download_button(
-                        label="📄 Download Report",
-                        data=file.read(),
-                        file_name="ICH_Shelf_Life_Report.pdf",
-                        mime="application/pdf"
-                    )
+# Add inputs for product metadata
+st.markdown("### 📦 Product Information for Report")
+product_name = st.text_input("Product Name", "Example Product")
+batch_number = st.text_input("Batch Number", "BN-001")
+batch_size = st.text_input("Batch Size", "10000 Tablets")
+packaging_mode = st.text_input("Packaging Mode", "Blister Pack")
+
+if st.button("📄 Generate and Download PDF Report"):
+    # Prepare PDF content
+    pdf_output = io.BytesIO()
+    doc = SimpleDocTemplate(pdf_output, pagesize=A4)
+    styles = getSampleStyleSheet()
+    story = []
+
+    # Title & Metadata
+    story.append(Paragraph("Stability Study Report", styles['Title']))
+    story.append(Spacer(1, 12))
+    story.append(Paragraph(f"<b>Product Name:</b> {product_name}", styles['Normal']))
+    story.append(Paragraph(f"<b>Batch Number:</b> {batch_number}", styles['Normal']))
+    story.append(Paragraph(f"<b>Batch Size:</b> {batch_size}", styles['Normal']))
+    story.append(Paragraph(f"<b>Packaging Mode:</b> {packaging_mode}", styles['Normal']))
+    story.append(Spacer(1, 12))
+
+    # Shelf-Life Table
+    shelf_life_table_data = [["Key", "Value"]]
+    for k, v in ich_result.items():
+        shelf_life_table_data.append([k, str(v)])
+    shelf_life_table_data.append(["R²", f"{r2:.2f}"])
+    if est_shelf_life:
+        shelf_life_table_data.append(["Estimated Shelf Life", f"{est_shelf_life:.2f} months"])
+
+    tbl = Table(shelf_life_table_data, hAlign='LEFT')
+    tbl.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.grey),
+        ('TEXTCOLOR',(0,0),(-1,0),colors.whitesmoke),
+        ('ALIGN',(0,0),(-1,-1),'CENTER'),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('BOTTOMPADDING', (0,0), (-1,0), 12),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.black),
+    ]))
+    story.append(Paragraph(f"<b>ICH Shelf-Life Estimation Summary:</b>", styles['Heading2']))
+    story.append(tbl)
+    story.append(Spacer(1, 12))
+
+    # Add Chart Image to PDF
+    from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+    fig_buf = io.BytesIO()
+    canvas = FigureCanvas(fig)
+    canvas.print_png(fig_buf)
+    fig_buf.seek(0)
+
+    story.append(Paragraph(f"<b>Regression Plot:</b>", styles['Heading2']))
+    story.append(PDFImage(fig_buf, width=6*inch, height=3*inch))
+    story.append(Spacer(1, 12))
+
+    # Build and trigger download
+    doc.build(story)
+    st.download_button(
+        label="📄 Download PDF Report",
+        data=pdf_output.getvalue(),
+        file_name="ICH_Shelf_Life_Report.pdf",
+        mime="application/pdf"
+    )
+
 
 st.markdown("---")
 st.markdown("Built for Pharma Quality Tools | ICH Stability Logic")
