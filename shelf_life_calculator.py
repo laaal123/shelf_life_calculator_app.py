@@ -11,12 +11,13 @@ from reportlab.lib import colors
 from reportlab.lib.units import inch
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 
-# ICH shelf life logic function with new no_sig_change_acc_6M param
+# Updated ICH Shelf-Life Estimation Logic (Full Decision Tree based)
 def ich_shelf_life_estimation(
     x_months: float,
-    no_sig_change_acc_3M: bool,
-    no_sig_change_acc_6M: bool,
-    sig_change_acc: bool,
+    no_sig_change_3m_acc: bool,
+    no_sig_change_6m_acc: bool,
+    sig_change_3m_acc: bool,
+    sig_change_6m_acc: bool,
     sig_change_int: bool,
     stored_refrigerated: bool,
     stats_supported: bool,
@@ -29,103 +30,70 @@ def ich_shelf_life_estimation(
         "Notes": ""
     }
 
-    # If significant change at accelerated condition (3M or 6M)
-    if sig_change_acc:
+    if sig_change_3m_acc or sig_change_6m_acc:
         if stored_refrigerated:
             result["Proposed Shelf Life (Y)"] = x_months + 3
             result["Decision"] = "Limited extrapolation for refrigerated product"
-            result["Notes"] = "Significant change at accelerated; refrigerated storage allows +3M"
+            result["Notes"] = "Significant change at accelerated; refrigerated allows +3M"
         elif sig_change_int:
             result["Proposed Shelf Life (Y)"] = x_months
             result["Decision"] = "No extrapolation"
             result["Notes"] = "Significant change at intermediate prevents extrapolation"
         else:
-            if stats_supported or support_data_available:
+            if stats_supported and support_data_available:
+                result["Proposed Shelf Life (Y)"] = min(x_months * 1.5, x_months + 6)
+                result["Decision"] = "Extrapolation allowed with stats and support"
+                result["Notes"] = "Statistical and support data allow extrapolation"
+            elif stats_supported or support_data_available:
                 result["Proposed Shelf Life (Y)"] = x_months + 3
-                result["Decision"] = "Extrapolation allowed with support"
-                result["Notes"] = "Support data or R2 allows +3M"
+                result["Decision"] = "Limited extrapolation with partial support"
+                result["Notes"] = "Stats or support data allow +3M"
             else:
                 result["Proposed Shelf Life (Y)"] = x_months
-                result["Notes"] = "Insufficient statistical support"
-
-    # No significant change at accelerated condition
+                result["Notes"] = "No extrapolation allowed"
     else:
+        # No significant change at 3M or 6M Accelerated
         if sig_change_int:
-            # Significant change at intermediate
             result["Proposed Shelf Life (Y)"] = x_months
             result["Decision"] = "No extrapolation"
-            result["Notes"] = "Significant change at intermediate prevents extrapolation"
-
+            result["Notes"] = "Intermediate change prevents extrapolation"
         else:
-            # No significant change at intermediate or accelerated
-
-            # Handle no significant change at 6M accelerated - max extrapolation rule
-            if no_sig_change_acc_6M:
-                # Max extrapolation: up to twice the long-term or long-term + 12 months, whichever is less
-                proposed_shelf_life = min(x_months * 2, x_months + 12)
-                result["Proposed Shelf Life (Y)"] = proposed_shelf_life
-                result["Decision"] = "Max extrapolation with no sig change at 6M accelerated"
-                result["Notes"] = "Shelf life up to twice long-term or +12M (whichever is less) allowed"
-
-            # Handle no significant change at 3M accelerated only - partial extrapolation
-            elif no_sig_change_acc_3M:
-                if stats_supported and support_data_available:
-                    # Full support, but no sig change only at 3M - allow +12M but capped by twice long-term
-                    proposed_shelf_life = min(x_months * 2, x_months + 12)
-                    result["Proposed Shelf Life (Y)"] = proposed_shelf_life
-                    result["Decision"] = "Max extrapolation with full support (3M no sig change)"
-                    result["Notes"] = "Full statistical and supporting data allows +12M extrapolation"
-                elif stats_supported or support_data_available:
-                    # Partial support - allow +6M
-                    result["Proposed Shelf Life (Y)"] = x_months + 6
-                    result["Decision"] = "Partial extrapolation with support"
-                    result["Notes"] = "Partial support allows +6M extrapolation"
-                else:
-                    # Minimal support - +3M
-                    result["Proposed Shelf Life (Y)"] = x_months + 3
-                    result["Decision"] = "Limited extrapolation with minimal support"
-                    result["Notes"] = "Minimal support allows +3M extrapolation"
-
+            if stats_supported and support_data_available:
+                result["Proposed Shelf Life (Y)"] = min(x_months * 2, x_months + 12)
+                result["Decision"] = "Max extrapolation with full support"
+                result["Notes"] = "Statistical and supporting data support +12M"
+            elif stats_supported or support_data_available:
+                result["Proposed Shelf Life (Y)"] = min(x_months * 1.5, x_months + 6)
+                result["Decision"] = "Partial extrapolation"
+                result["Notes"] = "Partial support or stats allows +6M"
             else:
-                # Default fallback - if no data, no extrapolation
-                if stats_supported and support_data_available:
-                    result["Proposed Shelf Life (Y)"] = x_months + 6
-                    result["Decision"] = "Partial extrapolation with support (default)"
-                    result["Notes"] = "Partial support allows +6M extrapolation"
-                elif stats_supported or support_data_available:
-                    result["Proposed Shelf Life (Y)"] = x_months + 3
-                    result["Decision"] = "Limited extrapolation with minimal support (default)"
-                    result["Notes"] = "Minimal support allows +3M extrapolation"
-                else:
-                    result["Proposed Shelf Life (Y)"] = x_months
-                    result["Decision"] = "No extrapolation (default)"
-                    result["Notes"] = "No statistical or supporting data available"
+                result["Proposed Shelf Life (Y)"] = x_months + 3
+                result["Decision"] = "Minimal extrapolation"
+                result["Notes"] = "No significant change but minimal support => +3M"
 
     return result
 
 # --- Streamlit UI ---
 st.set_page_config(layout="wide")
-st.title("📈 Manual Shelf-Life Estimation & ICH Decision")
+st.title("📈 ICH Shelf-Life Estimation App (Fully Aligned with Appendix A)")
 
-st.markdown("### 🧪 Pre-Input ICH Extrapolation Conditions")
-no_sig_acc_3M = st.checkbox("No significant change at 3M Accelerated?", value=True)
-no_sig_acc_6M = st.checkbox("No significant change at 6M Accelerated?", value=True)
-sig_acc = st.checkbox("Significant change at Accelerated?", value=False)
-sig_int = st.checkbox("Significant change at Intermediate?", value=False)
-refrig = st.checkbox("Stored refrigerated?", value=False)
-support = st.checkbox("Supporting data available?", value=False)
+st.markdown("### 🧪 Stability Study Observations")
+no_sig_3m = st.checkbox("✅ No Significant Change at 3M Accelerated", value=True)
+no_sig_6m = st.checkbox("✅ No Significant Change at 6M Accelerated", value=True)
+sig_3m = st.checkbox("⚠️ Significant Change at 3M Accelerated", value=False)
+sig_6m = st.checkbox("⚠️ Significant Change at 6M Accelerated", value=False)
+sig_int = st.checkbox("⚠️ Significant Change at Intermediate (6M, 30°C)", value=False)
+refrig = st.checkbox("❄️ Stored Refrigerated", value=False)
+support = st.checkbox("📄 Supporting Data Available", value=False)
 
-st.markdown("### ✍️ Input Manual Data (25°C/60%RH)")
+st.markdown("### 🧮 Manual Input Data for 25°C/60%RH")
 param = st.text_input("Parameter Name", "Assay")
 spec_limit = st.number_input("Specification Limit", value=85.0)
-failure_direction = st.radio("Does the parameter fail by increasing or decreasing?", ["Decreasing", "Increasing"])
+failure_direction = st.radio("Does parameter fail by:", ["Decreasing", "Increasing"])
 
-# Flexible input for time points and values
 month_labels = ["0M", "1M", "3M", "6M", "9M", "12M", "18M", "24M", "36M", "48M"]
 month_times = [0, 1, 3, 6, 9, 12, 18, 24, 36, 48]
-time_values = []
-value_inputs = []
-
+time_values, value_inputs = [], []
 for i, label in enumerate(month_labels):
     val = st.number_input(f"{label} Value", value=0.0, step=0.1, key=f"month_{i}")
     if val > 0:
@@ -134,110 +102,87 @@ for i, label in enumerate(month_labels):
 
 if st.button("📊 Calculate Shelf-Life"):
     if len(time_values) < 3:
-        st.error("At least 3 valid time points are required for regression.")
+        st.error("At least 3 valid time points are required.")
     else:
         df = pd.DataFrame({"Time": time_values, "Value": value_inputs})
         X = df["Time"].values.reshape(-1, 1)
         y = df["Value"].values
-        model = LinearRegression()
-        model.fit(X, y)
-        pred = model.predict(X)
+        model = LinearRegression().fit(X, y)
         slope = model.coef_[0]
         intercept = model.intercept_
-        r2 = r2_score(y, pred)
+        r2 = r2_score(y, model.predict(X))
 
         fig, ax = plt.subplots(figsize=(6, 4))
-        ax.scatter(X, y, color='blue', label='Observed')
-        ax.plot(X, pred, color='red', label=f'Regression (R²={r2:.2f})')
-        ax.axhline(y=spec_limit, color='green', linestyle='--', label=f'Spec Limit = {spec_limit}')
-        ax.set_xlabel("Time (Months)")
-        ax.set_ylabel("Value")
+        ax.scatter(X, y, color='blue')
+        ax.plot(X, model.predict(X), color='red', label=f'R²={r2:.2f}')
+        ax.axhline(y=spec_limit, color='green', linestyle='--')
+        ax.set_title("Regression Analysis")
         ax.legend()
-        ax.grid(True)
         st.pyplot(fig)
 
         if slope != 0:
-            if failure_direction == "Decreasing":
-                est_shelf_life = (spec_limit - intercept) / slope
-            else:
-                est_shelf_life = (spec_limit - intercept) / slope
+            est_shelf_life = (spec_limit - intercept) / slope
             if est_shelf_life > 0:
                 st.success(f"Estimated Shelf-Life: {est_shelf_life:.2f} months")
             else:
-                st.warning("Regression indicates spec limit already breached.")
+                st.warning("Regression line already below spec.")
         else:
             est_shelf_life = None
-            st.warning("Cannot calculate shelf-life: slope is zero.")
+            st.warning("Slope is zero. Shelf-life undetermined.")
 
-        st.markdown("### 🧮 ICH Logic Result")
-
-        # Determine last passing time point based on failure direction
-        if failure_direction == "Decreasing":
-            passing_times = [t for t, v in zip(time_values, value_inputs) if v >= spec_limit]
-        else:
-            passing_times = [t for t, v in zip(time_values, value_inputs) if v <= spec_limit]
-
-        x_base = max(passing_times) if passing_times else 0
-        stats = r2 >= 0.95
+        x_base = max([t for t, v in zip(time_values, value_inputs) if (v >= spec_limit if failure_direction == "Decreasing" else v <= spec_limit)], default=0)
+        stats_ok = r2 >= 0.95
 
         ich_result = ich_shelf_life_estimation(
             x_months=x_base,
-            no_sig_change_acc_3M=no_sig_acc_3M,
-            no_sig_change_acc_6M=no_sig_acc_6M,
-            sig_change_acc=sig_acc,
+            no_sig_change_3m_acc=no_sig_3m,
+            no_sig_change_6m_acc=no_sig_6m,
+            sig_change_3m_acc=sig_3m,
+            sig_change_6m_acc=sig_6m,
             sig_change_int=sig_int,
             stored_refrigerated=refrig,
-            stats_supported=stats,
+            stats_supported=stats_ok,
             support_data_available=support
         )
         ich_result["Regression Shelf Life (Y)"] = round(est_shelf_life, 2) if est_shelf_life else "N/A"
 
+        st.subheader("📋 ICH Decision Summary")
         for k, v in ich_result.items():
             st.write(f"**{k}**: {v}")
 
-        # --- Product Metadata ---
-        st.markdown("### 📦 Product Information for Report")
-        product_name = st.text_input("Product Name", "Example Product")
-        batch_number = st.text_input("Batch Number", "BN-001")
-        batch_size = st.text_input("Batch Size", "10000 Tablets")
-        packaging_mode = st.text_input("Packaging Mode", "Blister Pack")
+        st.markdown("### 📦 Product Metadata")
+        pname = st.text_input("Product Name", "Sample Product")
+        bnum = st.text_input("Batch Number", "BN001")
+        bsize = st.text_input("Batch Size", "10,000 Tablets")
+        ppack = st.text_input("Packaging", "Alu-Alu")
 
-        if st.button("📄 Generate and Download PDF Report"):
+        if st.button("📄 Generate PDF Report"):
             try:
                 pdf_output = io.BytesIO()
                 doc = SimpleDocTemplate(pdf_output, pagesize=A4)
                 styles = getSampleStyleSheet()
-                story = []
+                story = [
+                    Paragraph("ICH Stability Shelf-Life Report", styles['Title']),
+                    Spacer(1, 12),
+                    Paragraph(f"<b>Product:</b> {pname}", styles['Normal']),
+                    Paragraph(f"<b>Batch No:</b> {bnum}", styles['Normal']),
+                    Paragraph(f"<b>Batch Size:</b> {bsize}", styles['Normal']),
+                    Paragraph(f"<b>Packaging:</b> {ppack}", styles['Normal']),
+                    Spacer(1, 12),
+                    Paragraph("ICH Logic Summary", styles['Heading2'])
+                ]
 
-                # Title & Metadata
-                story.append(Paragraph("Stability Study Report", styles['Title']))
-                story.append(Spacer(1, 12))
-                story.append(Paragraph(f"<b>Product Name:</b> {product_name}", styles['Normal']))
-                story.append(Paragraph(f"<b>Batch Number:</b> {batch_number}", styles['Normal']))
-                story.append(Paragraph(f"<b>Batch Size:</b> {batch_size}", styles['Normal']))
-                story.append(Paragraph(f"<b>Packaging Mode:</b> {packaging_mode}", styles['Normal']))
-                story.append(Spacer(1, 12))
-
-                # ICH Summary Table
-                story.append(Paragraph(f"<b>ICH Shelf-Life Estimation Summary:</b>", styles['Heading2']))
-                shelf_life_table_data = [["Key", "Value"]] + [[k, str(v)] for k, v in ich_result.items()]
-                shelf_life_table_data.append(["R²", f"{r2:.2f}"])
-                if est_shelf_life:
-                    shelf_life_table_data.append(["Estimated Shelf Life", f"{est_shelf_life:.2f} months"])
-
-                table = Table(shelf_life_table_data)
+                table_data = [["Key", "Value"]] + [[k, str(v)] for k, v in ich_result.items()] + [["R²", f"{r2:.2f}"]]
+                table = Table(table_data)
                 table.setStyle(TableStyle([
                     ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
                     ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
                     ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                    ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
                     ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
                 ]))
                 story.append(table)
                 story.append(Spacer(1, 12))
 
-                # Add Regression Plot Image
                 fig_buf = io.BytesIO()
                 canvas = FigureCanvas(fig)
                 canvas.print_png(fig_buf)
@@ -245,22 +190,15 @@ if st.button("📊 Calculate Shelf-Life"):
                 story.append(Paragraph("Regression Plot", styles['Heading2']))
                 story.append(PDFImage(fig_buf, width=6 * inch, height=3 * inch))
 
-                # Finalize PDF
                 doc.build(story)
-                pdf_output.seek(0)  # Move cursor back to start
+                pdf_output.seek(0)
 
-                # Provide download button for PDF
-               st.download_button(
-               label="📄 Download ICH Shelf-Life Report (PDF)",
-               data=pdf_output,
-               file_name="ICH_Shelf_Life_Report.pdf",
-               mime="application/pdf"
-)
-
-
+                st.download_button(
+                    label="📄 Download ICH Shelf-Life Report (PDF)",
+                    data=pdf_output,
+                    file_name="ICH_Shelf_Life_Report.pdf",
+                    mime="application/pdf"
+                )
             except Exception as e:
                 st.error(f"PDF generation failed: {str(e)}")
-
-st.markdown("---")
-st.markdown("Built for Pharma Quality Tools | ICH Stability Logic")
 
