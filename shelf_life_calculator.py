@@ -72,6 +72,7 @@ support = st.checkbox("Supporting data available?", value=False)
 st.markdown("### ✍️ Input Manual Data (25°C/60%RH)")
 param = st.text_input("Parameter Name", "Assay")
 spec_limit = st.number_input("Specification Limit", value=85.0)
+failure_direction = st.radio("Does the parameter fail by increasing or decreasing?", ["Decreasing", "Increasing"])
 
 # Flexible input
 month_labels = ["0M", "1M", "3M", "6M", "9M", "12M", "18M", "24M", "36M", "48M"]
@@ -110,8 +111,15 @@ if st.button("📊 Calculate Shelf-Life"):
         st.pyplot(fig)
 
         if slope != 0:
-            est_shelf_life = (spec_limit - intercept) / slope
-            st.success(f"Estimated Shelf-Life: {est_shelf_life:.2f} months")
+            if failure_direction == "Decreasing":
+                est_shelf_life = (spec_limit - intercept) / slope
+            else:  # Increasing
+                est_shelf_life = (spec_limit - intercept) / slope
+
+            if est_shelf_life > 0:
+                st.success(f"Estimated Shelf-Life: {est_shelf_life:.2f} months")
+            else:
+                st.warning("Regression indicates spec limit already breached.")
         else:
             est_shelf_life = None
             st.warning("Cannot calculate shelf-life: slope is zero.")
@@ -119,7 +127,11 @@ if st.button("📊 Calculate Shelf-Life"):
         st.markdown("### 🧮 ICH Logic Result")
 
         # Determine last passing time point
-        passing_times = [t for t, v in zip(time_values, value_inputs) if v >= spec_limit]
+        if failure_direction == "Decreasing":
+            passing_times = [t for t, v in zip(time_values, value_inputs) if v >= spec_limit]
+        else:
+            passing_times = [t for t, v in zip(time_values, value_inputs) if v <= spec_limit]
+
         if not passing_times:
             x_base = 0
         else:
@@ -164,8 +176,6 @@ if st.button("📊 Calculate Shelf-Life"):
                         file_name="ICH_Shelf_Life_Report.pdf",
                         mime="application/pdf"
                     )
-
-
 
 st.markdown("---")
 st.markdown("Built for Pharma Quality Tools | ICH Stability Logic")
