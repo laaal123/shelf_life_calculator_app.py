@@ -163,7 +163,28 @@ if st.button("\U0001F4CA Calculate Shelf-Life"):
         )
 
         result["Regression Shelf Life (Y)"] = round(est_shelf_life, 2) if est_shelf_life else "N/A"
+       ...
         result["R²"] = f"{r2:.2f}"
+        # Add detailed interpretation based on decision
+        if "Decision" in result:
+            if result["Decision"].startswith("No extrapolation"):
+                result["Estimation Note"] = "Shelf-life estimation limited to long-term data; no extrapolation applied as per Appendix A guidance."
+                result["Decision Tree Shelf Life (M)"] = x_base
+            elif "1.5x" in result["Decision"]:
+                estimated = min(x_base * 1.5, x_base + 6)
+                result["Estimation Note"] = "Shelf-life extended up to 1.5x of available long-term data, capped at 6 months as per ICH Q1E Appendix A."
+                result["Decision Tree Shelf Life (M)"] = round(estimated, 2)
+            elif "2x" in result["Decision"]:
+                estimated = min(x_base * 2, x_base + 12)
+                result["Estimation Note"] = "Shelf-life extended up to 2x of long-term data, maximum 12 months extrapolation per ICH Q1E."
+                result["Decision Tree Shelf Life (M)"] = round(estimated, 2)
+            elif "+3 M" in result["Decision"]:
+                result["Estimation Note"] = "Shelf-life extended conservatively by 3 months due to supporting but non-statistical evidence."
+                result["Decision Tree Shelf Life (M)"] = x_base + 3
+            else:
+                result["Estimation Note"] = "Shelf-life determined based on combined evaluation of ICH Appendix A conditions."
+                result["Decision Tree Shelf Life (M)"] = x_base
+    
         result["Product Name"] = product_name
         result["Batch Number"] = batch_number
         result["Batch Size"] = batch_size
