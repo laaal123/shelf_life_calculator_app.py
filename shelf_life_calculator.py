@@ -161,8 +161,8 @@ if st.button("📊 Calculate Shelf-Life"):
         batch_size = st.text_input("Batch Size", "10000 Tablets")
         packaging_mode = st.text_input("Packaging Mode", "Blister Pack")
 
-      if st.button("📄 Generate and Download PDF Report"):
-    try:
+     if st.button("📄 Generate and Download PDF Report"):
+
         # Generate PDF to buffer
         pdf_output = io.BytesIO()
         doc = SimpleDocTemplate(pdf_output, pagesize=A4)
