@@ -11,65 +11,74 @@ from reportlab.lib import colors
 from reportlab.lib.units import inch
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 
-# Updated ICH Shelf-Life Estimation Logic (Full Decision Tree based)
-def ich_shelf_life_estimation(
+def ich_shelf_life_decision(
     x_months: float,
-    no_sig_change_3m_acc: bool,
-    no_sig_change_6m_acc: bool,
-    sig_change_3m_acc: bool,
-    sig_change_6m_acc: bool,
-    sig_change_int: bool,
+    sig_change_3m_accel: bool,
+    sig_change_6m_accel: bool,
+    sig_change_intermediate: bool,
+    no_change_accel: bool,
+    data_trend_low_variability: bool,
+    long_term_stats_amenable: bool,
+    stats_performed: bool,
+    supporting_data_available: bool,
     stored_refrigerated: bool,
-    stats_supported: bool,
-    support_data_available: bool
+    stored_frozen: bool
 ) -> dict:
-    result = {
-        "Base (X)": x_months,
-        "Proposed Shelf Life (Y)": x_months,
-        "Decision": "No extrapolation",
-        "Notes": ""
-    }
 
-    if sig_change_3m_acc or sig_change_6m_acc:
-        if stored_refrigerated:
+    result = {"Base (X)": x_months, "Proposed Shelf Life (Y)": x_months, "Decision": "No extrapolation", "Notes": ""}
+
+    if stored_frozen:
+        result["Decision"] = "No extrapolation - freezer storage"
+        result["Notes"] = "Use long-term data only"
+        return result
+
+    # A. Accelerated Condition Check
+    if sig_change_3m_accel or sig_change_6m_accel:
+        if sig_change_intermediate:
+            result["Decision"] = "No extrapolation"
+            result["Notes"] = "Significant change at both accelerated and intermediate"
+        elif stored_refrigerated:
             result["Proposed Shelf Life (Y)"] = x_months + 3
-            result["Decision"] = "Limited extrapolation for refrigerated product"
-            result["Notes"] = "Significant change at accelerated; refrigerated allows +3M"
-        elif sig_change_int:
-            result["Proposed Shelf Life (Y)"] = x_months
-            result["Decision"] = "No extrapolation"
-            result["Notes"] = "Significant change at intermediate prevents extrapolation"
+            result["Decision"] = "Refrigerated: +3M allowed"
+            result["Notes"] = "Significant change at accelerated, but not at intermediate"
+        elif long_term_stats_amenable and stats_performed and supporting_data_available:
+            result["Proposed Shelf Life (Y)"] = min(x_months * 1.5, x_months + 6)
+            result["Decision"] = "+6M with statistical & support data"
+        elif stats_performed or supporting_data_available:
+            result["Proposed Shelf Life (Y)"] = x_months + 3
+            result["Decision"] = "+3M with partial support"
         else:
-            if stats_supported and support_data_available:
-                result["Proposed Shelf Life (Y)"] = min(x_months * 1.5, x_months + 6)
-                result["Decision"] = "Extrapolation allowed with stats and support"
-                result["Notes"] = "Statistical and support data allow extrapolation"
-            elif stats_supported or support_data_available:
-                result["Proposed Shelf Life (Y)"] = x_months + 3
-                result["Decision"] = "Limited extrapolation with partial support"
-                result["Notes"] = "Stats or support data allow +3M"
-            else:
-                result["Proposed Shelf Life (Y)"] = x_months
-                result["Notes"] = "No extrapolation allowed"
+            result["Decision"] = "No extrapolation"
+            result["Notes"] = "No intermediate change but insufficient support"
+
+    # B. No Significant Change at Accelerated
     else:
-        # No significant change at 3M or 6M Accelerated
-        if sig_change_int:
-            result["Proposed Shelf Life (Y)"] = x_months
+        if sig_change_intermediate:
             result["Decision"] = "No extrapolation"
-            result["Notes"] = "Intermediate change prevents extrapolation"
+            result["Notes"] = "Intermediate condition shows significant change"
         else:
-            if stats_supported and support_data_available:
-                result["Proposed Shelf Life (Y)"] = min(x_months * 2, x_months + 12)
-                result["Decision"] = "Max extrapolation with full support"
-                result["Notes"] = "Statistical and supporting data support +12M"
-            elif stats_supported or support_data_available:
-                result["Proposed Shelf Life (Y)"] = min(x_months * 1.5, x_months + 6)
-                result["Decision"] = "Partial extrapolation"
-                result["Notes"] = "Partial support or stats allows +6M"
+            if data_trend_low_variability:
+                if stored_refrigerated:
+                    result["Proposed Shelf Life (Y)"] = min(x_months * 1.5, x_months + 6)
+                    result["Decision"] = "+6M max for refrigerated, low variability"
+                else:
+                    result["Proposed Shelf Life (Y)"] = min(x_months * 2, x_months + 12)
+                    result["Decision"] = "+12M max for room temp, low variability"
             else:
-                result["Proposed Shelf Life (Y)"] = x_months + 3
-                result["Decision"] = "Minimal extrapolation"
-                result["Notes"] = "No significant change but minimal support => +3M"
+                if long_term_stats_amenable:
+                    if stats_performed and supporting_data_available:
+                        result["Proposed Shelf Life (Y)"] = min(x_months * 2, x_months + 12)
+                        result["Decision"] = "+12M with full stats & support"
+                    else:
+                        result["Proposed Shelf Life (Y)"] = min(x_months * 1.5, x_months + 6)
+                        result["Decision"] = "+6M with partial support"
+                else:
+                    if supporting_data_available:
+                        result["Proposed Shelf Life (Y)"] = min(x_months * 1.5, x_months + 6)
+                        result["Decision"] = "+6M with non-statistical support"
+                    else:
+                        result["Proposed Shelf Life (Y)"] = x_months + 3
+                        result["Decision"] = "Minimal extrapolation: +3M"
 
     return result
 
