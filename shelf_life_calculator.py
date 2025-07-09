@@ -11,6 +11,17 @@ from reportlab.lib import colors
 from reportlab.lib.units import inch
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 
+# Initialize session state defaults
+if "ich_result" not in st.session_state:
+    st.session_state["ich_result"] = {}
+if "est_shelf_life" not in st.session_state:
+    st.session_state["est_shelf_life"] = None
+if "r2" not in st.session_state:
+    st.session_state["r2"] = None
+if "last_fig" not in st.session_state:
+    st.session_state["last_fig"] = None
+
+# ICH shelf life decision logic
 def ich_shelf_life_decision(
     x_months: float,
     sig_change_3m_accel: bool,
@@ -38,7 +49,6 @@ def ich_shelf_life_decision(
         result["Notes"] = "Use long-term data only"
         return result
 
-    # Extended logic for significant changes
     if sig_change_6m_accel:
         if sig_change_3m_accel:
             result["Decision"] = "No extrapolation"
@@ -64,7 +74,6 @@ def ich_shelf_life_decision(
                 result["Notes"] = "Backed by statistical analysis and supporting data"
                 return result
 
-    # New logic for no significant change at accelerated and low variability
     if not sig_change_6m_accel and long_term_stats_amenable:
         if data_trend_low_variability and no_change_accel:
             if stored_refrigerated:
@@ -100,21 +109,21 @@ def ich_shelf_life_decision(
 
 # --- Streamlit UI Integration ---
 st.set_page_config(layout="wide")
-st.title("📈 ICH Shelf-Life Estimation App")
+st.title("\ ICH Shelf-Life Estimation App")
 
-st.markdown("### 🧪 Observations")
-sig_3m = st.checkbox("⚠️ Significant Change at 3M Accelerated", value=False)
-sig_6m = st.checkbox("⚠️ Significant Change at 6M Accelerated", value=False)
-no_int = st.checkbox("No Change at Intermediate", value=False)
-sig_int = st.checkbox("⚠️ Significant Change at Intermediate (30°C, 6M)", value=False)
-refrig = st.checkbox("❄️ Stored Refrigerated", value=False)
-frozen = st.checkbox("❄️ Stored Frozen", value=False)
-support = st.checkbox("📄 Supporting Data Available", value=False)
-stats_performed = st.checkbox("📊 Stats Performed with R² ≥ 0.95", value=False)
-low_variability = st.checkbox("📉 Low Variability Trend", value=False)
-long_term_stats_amenable = st.checkbox("📈 Long-Term Trend Amenable to Stats", value=False)
+st.markdown("### \ Observations")
+sig_3m = st.checkbox("\ Significant Change at 3M Accelerated", value=False)
+sig_6m = st.checkbox("\ Significant Change at 6M Accelerated", value=False)
+no_int = st.checkbox("\ No Change at Intermediate", value=False)
+sig_int = st.checkbox("\ Significant Change at Intermediate (30°C, 6M)", value=False)
+refrig = st.checkbox("\ Stored Refrigerated", value=False)
+frozen = st.checkbox("\ Stored Frozen", value=False)
+support = st.checkbox("\ Supporting Data Available", value=False)
+stats_performed = st.checkbox("\ Stats Performed with R² ≥ 0.95", value=False)
+low_variability = st.checkbox("\ Low Variability Trend", value=False)
+long_term_stats_amenable = st.checkbox("\ Long-Term Trend Amenable to Stats", value=False)
 
-st.markdown("### 🧮 Stability Data Entry")
+st.markdown("### \ Stability Data Entry")
 spec_limit = st.number_input("Specification Limit", value=85.0)
 failure_dir = st.radio("Parameter fails by:", ["Decreasing", "Increasing"])
 
@@ -127,7 +136,7 @@ for i, label in enumerate(month_labels):
         time_values.append(month_times[i])
         value_inputs.append(val)
 
-if st.button("📊 Calculate Shelf-Life"):
+if st.button("\ Calculate Shelf-Life"):
     if len(time_values) < 3:
         st.error("At least 3 valid time points required.")
     else:
@@ -148,11 +157,6 @@ if st.button("📊 Calculate Shelf-Life"):
         st.pyplot(fig)
 
         est_shelf_life = (spec_limit - intercept) / slope if slope != 0 else None
-        if est_shelf_life and est_shelf_life > 0:
-            st.success(f"Estimated Shelf-Life: {est_shelf_life:.2f} months")
-        else:
-            st.warning("Regression below spec or slope is zero.")
-
         x_base = max([t for t, v in zip(time_values, value_inputs) if (v >= spec_limit if failure_dir == "Decreasing" else v <= spec_limit)], default=0)
 
         ich_result = ich_shelf_life_decision(
@@ -173,9 +177,15 @@ if st.button("📊 Calculate Shelf-Life"):
         ich_result["Regression Shelf Life (Y)"] = round(est_shelf_life, 2) if est_shelf_life else "N/A"
         ich_result["R²"] = f"{r2:.2f}"
 
-        st.subheader("📋 ICH Decision Summary")
+        st.session_state["ich_result"] = ich_result
+        st.session_state["est_shelf_life"] = est_shelf_life
+        st.session_state["r2"] = r2
+        st.session_state["last_fig"] = fig
+
+        st.subheader("\ ICH Decision Summary")
         for k, v in ich_result.items():
             st.write(f"**{k}**: {v}")
+
 # --- PDF generation ---
 if st.button("📄 Generate and Download PDF Report"):
     try:
