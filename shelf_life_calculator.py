@@ -84,6 +84,11 @@ def determine_shelf_life(
         result["Decision"] = "Up to 1.5x (max +6 M)"
         result["Notes"] = "Backed by statistical analysis and supporting data"
         return result
+    if no_change_accel and no_change_longterm and no_variability:
+        result["Proposed Shelf Life (Y)"] = min(x_months * 2, x_months + 12)
+        result["Decision"] = "Up to 2x (max +12 M)"
+        result["Notes"] = "Low variability; statistical analysis unnecessary"
+        return result
         
     if sig_change_6m_accel:
         if sig_change_3m_accel:
