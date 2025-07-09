@@ -21,6 +21,13 @@ if "r2" not in st.session_state:
 if "last_fig" not in st.session_state:
     st.session_state["last_fig"] = None
 
+# Collect product details for PDF
+st.sidebar.markdown("### ✏️ Product Information")
+product_name = st.sidebar.text_input("Product Name", "Sample Drug")
+batch_number = st.sidebar.text_input("Batch Number", "B12345")
+batch_size = st.sidebar.text_input("Batch Size", "10000 tablets")
+packaging_mode = st.sidebar.text_input("Packaging Mode", "HDPE Bottle")
+
 # ICH shelf life decision logic
 def ich_shelf_life_decision(
     x_months: float,
