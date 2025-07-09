@@ -182,7 +182,7 @@ if st.button("\U0001F4CA Evaluate Shelf Life"):
     result["Packaging Mode"] = packaging_mode
 
     st.session_state["ich_result"] = result
-        ich_result = ich_shelf_life_decision(
+            ich_result = ich_shelf_life_decision(
             x_months=x_base,
             sig_change_3m_accel=sig_3m,
             sig_change_6m_accel=sig_6m,
