@@ -54,7 +54,7 @@ no_long_term_stats_amenable = st.checkbox("\U0001F4C8 Not Long-term Stats Amenab
 no_stats_performed = st.checkbox("\U0001F4CA Not Stats Performed (R² ≥ 0.95)")
 
 # Stability Data Entry 
-st.markdown("### \U0001F9EE Stability Data Entry 25C/60% HR")
+st.markdown("### \U0001F9EE Stability Data Entry 25C/60% RH")
 spec_limit = st.number_input("Specification Limit", value=85.0)
 failure_dir = st.radio("Parameter fails by:", ["Decreasing", "Increasing"])
 
