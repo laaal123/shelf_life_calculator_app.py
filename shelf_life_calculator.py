@@ -251,8 +251,7 @@ if st.button("📊 Calculate Shelf-Life"):
 
                 # Provide download button for PDF
                 st.download_button(
-                    label="📄 Download ICH Shelf-Life
-
+                    label="📄 Download ICH Shelf-Life"
                     data=pdf_output,
                     file_name="ICH_Shelf_Life_Report.pdf",
                     mime="application/pdf"
