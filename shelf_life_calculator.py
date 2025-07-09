@@ -47,6 +47,8 @@ data_trend_low_variability = st.checkbox("\U0001F4C9 Low Variability Trend")
 no_change_accel = st.checkbox("\U0001F4C9 No Change in Accelerated")
 change_long_term_data = st.checkbox("\U0001F4C8 Change in Long-Term Data")
 no_sig_change_intermediate = st.checkbox("\u26a0\ufe0f No Significant Change at Intermediate")
+no_change_longterm= st.checkbox("\U0001F4C8 No Change in Long-Term Data")
+no_variability= st.checkbox("\U0001F4C9 No Variability Trend")
 
 # Stability Data Entry
 st.markdown("### \U0001F9EE Stability Data Entry")
