@@ -109,21 +109,21 @@ def ich_shelf_life_decision(
 
 # --- Streamlit UI Integration ---
 st.set_page_config(layout="wide")
-st.title("\ ICH Shelf-Life Estimation App")
+st.title("\U0001F4C8 ICH Shelf-Life Estimation App")
 
-st.markdown("### \ Observations")
-sig_3m = st.checkbox("\ Significant Change at 3M Accelerated", value=False)
-sig_6m = st.checkbox("\ Significant Change at 6M Accelerated", value=False)
-no_int = st.checkbox("\ No Change at Intermediate", value=False)
-sig_int = st.checkbox("\ Significant Change at Intermediate (30°C, 6M)", value=False)
-refrig = st.checkbox("\ Stored Refrigerated", value=False)
-frozen = st.checkbox("\ Stored Frozen", value=False)
-support = st.checkbox("\ Supporting Data Available", value=False)
-stats_performed = st.checkbox("\ Stats Performed with R² ≥ 0.95", value=False)
-low_variability = st.checkbox("\ Low Variability Trend", value=False)
-long_term_stats_amenable = st.checkbox("\ Long-Term Trend Amenable to Stats", value=False)
+st.markdown("### \U0001F9EA Observations")
+sig_3m = st.checkbox("\u26a0\ufe0f Significant Change at 3M Accelerated", value=False)
+sig_6m = st.checkbox("\u26a0\ufe0f Significant Change at 6M Accelerated", value=False)
+no_int = st.checkbox("No Change at Intermediate", value=False)
+sig_int = st.checkbox("\u26a0\ufe0f Significant Change at Intermediate (30°C, 6M)", value=False)
+refrig = st.checkbox("\u2744\ufe0f Stored Refrigerated", value=False)
+frozen = st.checkbox("\u2744\ufe0f Stored Frozen", value=False)
+support = st.checkbox("\U0001F4C4 Supporting Data Available", value=False)
+stats_performed = st.checkbox("\U0001F4CA Stats Performed with R² ≥ 0.95", value=False)
+low_variability = st.checkbox("\U0001F4C9 Low Variability Trend", value=False)
+long_term_stats_amenable = st.checkbox("\U0001F4C8 Long-Term Trend Amenable to Stats", value=False)
 
-st.markdown("### \ Stability Data Entry")
+st.markdown("### \U0001F9EE Stability Data Entry")
 spec_limit = st.number_input("Specification Limit", value=85.0)
 failure_dir = st.radio("Parameter fails by:", ["Decreasing", "Increasing"])
 
@@ -136,7 +136,7 @@ for i, label in enumerate(month_labels):
         time_values.append(month_times[i])
         value_inputs.append(val)
 
-if st.button("\ Calculate Shelf-Life"):
+if st.button("\U0001F4CA Calculate Shelf-Life"):
     if len(time_values) < 3:
         st.error("At least 3 valid time points required.")
     else:
@@ -182,9 +182,10 @@ if st.button("\ Calculate Shelf-Life"):
         st.session_state["r2"] = r2
         st.session_state["last_fig"] = fig
 
-        st.subheader("\ ICH Decision Summary")
+        st.subheader("\U0001F4CB ICH Decision Summary")
         for k, v in ich_result.items():
             st.write(f"**{k}**: {v}")
+
 
 # --- PDF generation ---
 if st.button("📄 Generate and Download PDF Report"):
