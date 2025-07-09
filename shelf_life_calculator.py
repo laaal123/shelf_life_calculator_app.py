@@ -83,11 +83,6 @@ def ich_shelf_life_decision(
 
     if not sig_change_6m_accel and long_term_stats_amenable:
         if data_trend_low_variability and no_change_accel:
-            if stored_refrigerated:
-                result["Proposed Shelf Life (Y)"] = min(x_months * 1.5, x_months + 6)
-                result["Decision"] = "Up to 1.5x (max +6 M)"
-                result["Notes"] = "Low variability; statistical analysis unnecessary"
-            else:
                 result["Proposed Shelf Life (Y)"] = min(x_months * 2, x_months + 12)
                 result["Decision"] = "Up to 2x (max +12 M)"
                 result["Notes"] = "Low variability; statistical analysis unnecessary"
