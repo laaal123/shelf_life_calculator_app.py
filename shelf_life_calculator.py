@@ -124,6 +124,43 @@ no_change_accel = st.checkbox("No Change in Accelerated")
 
 x_months = st.number_input("Initial Shelf Life (months)", min_value=1, step=1)
 
+st.markdown("### \U0001F9EE Stability Data Entry")
+spec_limit = st.number_input("Specification Limit", value=85.0)
+failure_dir = st.radio("Parameter fails by:", ["Decreasing", "Increasing"])
+
+month_labels = ["0M", "1M", "3M", "6M", "9M", "12M", "18M", "24M", "36M", "48M"]
+month_times = [0, 1, 3, 6, 9, 12, 18, 24, 36, 48]
+time_values, value_inputs = [], []
+for i, label in enumerate(month_labels):
+    val = st.number_input(f"{label} Value", value=0.0, step=0.1, key=f"month_{i}")
+    if val > 0:
+        time_values.append(month_times[i])
+        value_inputs.append(val)
+
+if st.button("\U0001F4CA Calculate Shelf-Life"):
+    if len(time_values) < 3:
+        st.error("At least 3 valid time points required.")
+    else:
+        df = pd.DataFrame({"Time": time_values, "Value": value_inputs})
+        X = df["Time"].values.reshape(-1, 1)
+        y = df["Value"].values
+        model = LinearRegression().fit(X, y)
+        slope = model.coef_[0]
+        intercept = model.intercept_
+        r2 = r2_score(y, model.predict(X))
+
+        fig, ax = plt.subplots(figsize=(6, 4))
+        ax.scatter(X, y, color='blue')
+        ax.plot(X, model.predict(X), color='red', label=f'R²={r2:.2f}')
+        ax.axhline(y=spec_limit, color='green', linestyle='--')
+        ax.set_title("Regression Analysis")
+        ax.legend()
+        st.pyplot(fig)
+
+        est_shelf_life = (spec_limit - intercept) / slope if slope != 0 else None
+        x_base = max([t for t, v in zip(time_values, value_inputs) if (v >= spec_limit if failure_dir == "Decreasing" else v <= spec_limit)], default=0)
+
+
 if st.button("\U0001F4CA Evaluate Shelf Life"):
     result = determine_shelf_life(
         stored_frozen,
