@@ -1,4 +1,3 @@
-# Corrected Streamlit Shelf-Life App with Checkboxes and Clean Indentation
 
 import streamlit as st
 import pandas as pd
@@ -76,17 +75,17 @@ def determine_shelf_life(
 
     if sig_change_6m_accel:
         if sig_change_3m_accel:
-              if long_term_stats_amenable and stats_performed and supporting_data_available:
-                  result["Proposed Shelf Life (Y)"] = min(x_months * 1.5, x_months + 6)
-                  result["Decision"] = "Up to 1.5x (max +6 M)"
-                  result["Notes"] = "Backed by statistical analysis and supporting data"
-                  return result
+            if long_term_stats_amenable and stats_performed and supporting_data_available:
+                result["Proposed Shelf Life (Y)"] = min(x_months * 1.5, x_months + 6)
+                result["Decision"] = "Up to 1.5x (max +6 M)"
+                result["Notes"] = "Backed by statistical analysis and supporting data"
+                return result
             else:
                 if est_shelf_life and est_shelf_life >= (x_months + 3):
                     result["Proposed Shelf Life (Y)"] = x_months + 3
                     result["Decision"] = "Up to +3 M"
                     result["Notes"] = "Based on relevant supporting data and regression supports this extrapolation"
-                else: 
+                else:
                     result["Decision"] = "No extrapolation"
                     result["Notes"] = "Regression does not support the proposed +3 M extrapolation"
                 return result
@@ -115,6 +114,7 @@ def determine_shelf_life(
             return result
 
     return result
+
 
 # Shelf-life calculation trigger
 if st.button("\U0001F4CA Calculate Shelf-Life"):
