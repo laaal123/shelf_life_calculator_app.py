@@ -161,13 +161,17 @@ if st.button("📊 Calculate Shelf-Life"):
         batch_size = st.text_input("Batch Size", "10000 Tablets")
         packaging_mode = st.text_input("Packaging Mode", "Blister Pack")
 
-        if st.button("📄 Generate and Download PDF Report"):
-            try:
-                # Generate PDF to buffer
-                pdf_output = io.BytesIO()
-                doc = SimpleDocTemplate(pdf_output, pagesize=A4)
-                styles = getSampleStyleSheet()
-                story = []
+       if st.button("📄 Generate and Download PDF Report"):
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image as PDFImage
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.lib import colors
+    from reportlab.lib.units import inch
+
+    pdf_output = io.BytesIO()
+    doc = SimpleDocTemplate(pdf_output, pagesize=A4)
+    styles = getSampleStyleSheet()
+    story = []
 
                 # Title & Metadata
                 story.append(Paragraph("Stability Study Report", styles['Title']))
