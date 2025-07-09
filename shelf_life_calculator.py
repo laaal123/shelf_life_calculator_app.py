@@ -14,42 +14,28 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 # Initialize session state defaults
 if "ich_result" not in st.session_state:
     st.session_state["ich_result"] = {}
-if "est_shelf_life" not in st.session_state:
-    st.session_state["est_shelf_life"] = None
-if "r2" not in st.session_state:
-    st.session_state["r2"] = None
-if "last_fig" not in st.session_state:
-    st.session_state["last_fig"] = None
 
-# Collect product details for PDF
+# Product Info
 st.sidebar.markdown("### ✏️ Product Information")
 product_name = st.sidebar.text_input("Product Name", "Sample Drug")
 batch_number = st.sidebar.text_input("Batch Number", "B12345")
 batch_size = st.sidebar.text_input("Batch Size", "10000 tablets")
 packaging_mode = st.sidebar.text_input("Packaging Mode", "HDPE Bottle")
 
-# ICH shelf life decision logic
-def ich_shelf_life_decision(
-    x_months: float,
-    sig_change_3m_accel: bool,
+def determine_shelf_life(
+    stored_frozen: bool,
     sig_change_6m_accel: bool,
+    sig_change_3m_accel: bool,
+    stored_refrigerated: bool,
     sig_change_intermediate: bool,
-    no_change_accel: bool,
-    no_change_intermediate: bool,
-    data_trend_low_variability: bool,
     long_term_stats_amenable: bool,
     stats_performed: bool,
     supporting_data_available: bool,
-    stored_refrigerated: bool,
-    stored_frozen: bool
-) -> dict:
-
-    result = {
-        "Base (X)": x_months,
-        "Proposed Shelf Life (Y)": x_months,
-        "Decision": "No extrapolation",
-        "Notes": ""
-    }
+    data_trend_low_variability: bool,
+    no_change_accel: bool,
+    x_months: int
+):
+    result = {}
 
     if stored_frozen:
         result["Decision"] = "No extrapolation - freezer storage"
@@ -59,12 +45,16 @@ def ich_shelf_life_decision(
     if sig_change_6m_accel:
         if sig_change_3m_accel:
             result["Decision"] = "No extrapolation"
-            result["Notes"] = "Shorter retest period or shelf life may be needed; include data for excursions; statistical analysis if long-term shows variability"
+            result["Notes"] = ("Shorter retest period or shelf life may be needed; include data for excursions; "
+                                "statistical analysis if long-term shows variability")
             return result
+
         elif not stored_refrigerated and sig_change_intermediate:
             result["Decision"] = "No extrapolation"
-            result["Notes"] = "Shorter retest period or shelf life may be needed; statistical analysis if long-term data show variability"
+            result["Notes"] = ("Shorter retest period or shelf life may be needed; statistical analysis if long-term data "
+                                "show variability")
             return result
+
         elif not stored_refrigerated and not sig_change_intermediate:
             if not long_term_stats_amenable:
                 if supporting_data_available:
@@ -75,6 +65,7 @@ def ich_shelf_life_decision(
                     result["Decision"] = "No extrapolation"
                     result["Notes"] = "Insufficient statistical and supporting data"
                 return result
+
             elif long_term_stats_amenable and stats_performed and supporting_data_available:
                 result["Proposed Shelf Life (Y)"] = min(x_months * 1.5, x_months + 6)
                 result["Decision"] = "Up to 1.5x (max +6 M)"
@@ -92,6 +83,7 @@ def ich_shelf_life_decision(
                 result["Decision"] = "Up to 2x (max +12 M)"
                 result["Notes"] = "Low variability; statistical analysis unnecessary"
             return result
+
         elif not data_trend_low_variability:
             if long_term_stats_amenable and stats_performed and supporting_data_available:
                 if stored_refrigerated:
@@ -102,6 +94,7 @@ def ich_shelf_life_decision(
                     result["Decision"] = "Up to 2x (max +12 M)"
                 result["Notes"] = "Statistical analysis and supporting data available"
                 return result
+
             elif supporting_data_available:
                 if stored_refrigerated:
                     result["Proposed Shelf Life (Y)"] = x_months + 3
@@ -114,84 +107,48 @@ def ich_shelf_life_decision(
 
     return result
 
-# --- Streamlit UI Integration ---
+# Streamlit UI
 st.set_page_config(layout="wide")
-st.title("\U0001F4C8 ICH Shelf-Life Estimation App")
+st.title("\U0001F4C8 ICH Shelf-Life Extrapolation Tool")
 
-st.markdown("### \U0001F9EA Observations")
-sig_3m = st.checkbox("\u26a0\ufe0f Significant Change at 3M Accelerated", value=False)
-sig_6m = st.checkbox("\u26a0\ufe0f Significant Change at 6M Accelerated", value=False)
-no_int = st.checkbox("No Change at Intermediate", value=False)
-sig_int = st.checkbox("\u26a0\ufe0f Significant Change at Intermediate (30°C, 6M)", value=False)
-refrig = st.checkbox("\u2744\ufe0f Stored Refrigerated", value=False)
-frozen = st.checkbox("\u2744\ufe0f Stored Frozen", value=False)
-support = st.checkbox("\U0001F4C4 Supporting Data Available", value=False)
-stats_performed = st.checkbox("\U0001F4CA Stats Performed with R² ≥ 0.95", value=False)
-low_variability = st.checkbox("\U0001F4C9 Low Variability Trend", value=False)
-long_term_stats_amenable = st.checkbox("\U0001F4C8 Long-Term Trend Amenable to Stats", value=False)
+stored_frozen = st.checkbox("\u2744\ufe0f Stored Frozen")
+sig_change_6m_accel = st.checkbox("\u26a0\ufe0f Significant Change at 6M Accelerated")
+sig_change_3m_accel = st.checkbox("\u26a0\ufe0f Significant Change at 3M Accelerated")
+stored_refrigerated = st.checkbox("\u2744\ufe0f Stored Refrigerated")
+sig_change_intermediate = st.checkbox("\u26a0\ufe0f Significant Change at Intermediate")
+long_term_stats_amenable = st.checkbox("\U0001F4C8 Long-term Stats Amenable")
+stats_performed = st.checkbox("\U0001F4CA Stats Performed")
+supporting_data_available = st.checkbox("\U0001F4C4 Supporting Data Available")
+data_trend_low_variability = st.checkbox("\U0001F4C9 Data Trend Low Variability")
+no_change_accel = st.checkbox("No Change in Accelerated")
 
-st.markdown("### \U0001F9EE Stability Data Entry")
-spec_limit = st.number_input("Specification Limit", value=85.0)
-failure_dir = st.radio("Parameter fails by:", ["Decreasing", "Increasing"])
+x_months = st.number_input("Initial Shelf Life (months)", min_value=1, step=1)
 
-month_labels = ["0M", "1M", "3M", "6M", "9M", "12M", "18M", "24M", "36M", "48M"]
-month_times = [0, 1, 3, 6, 9, 12, 18, 24, 36, 48]
-time_values, value_inputs = [], []
-for i, label in enumerate(month_labels):
-    val = st.number_input(f"{label} Value", value=0.0, step=0.1, key=f"month_{i}")
-    if val > 0:
-        time_values.append(month_times[i])
-        value_inputs.append(val)
+if st.button("\U0001F4CA Evaluate Shelf Life"):
+    result = determine_shelf_life(
+        stored_frozen,
+        sig_change_6m_accel,
+        sig_change_3m_accel,
+        stored_refrigerated,
+        sig_change_intermediate,
+        long_term_stats_amenable,
+        stats_performed,
+        supporting_data_available,
+        data_trend_low_variability,
+        no_change_accel,
+        x_months
+    )
 
-if st.button("\U0001F4CA Calculate Shelf-Life"):
-    if len(time_values) < 3:
-        st.error("At least 3 valid time points required.")
-    else:
-        df = pd.DataFrame({"Time": time_values, "Value": value_inputs})
-        X = df["Time"].values.reshape(-1, 1)
-        y = df["Value"].values
-        model = LinearRegression().fit(X, y)
-        slope = model.coef_[0]
-        intercept = model.intercept_
-        r2 = r2_score(y, model.predict(X))
+    result["Product Name"] = product_name
+    result["Batch Number"] = batch_number
+    result["Batch Size"] = batch_size
+    result["Packaging Mode"] = packaging_mode
 
-        fig, ax = plt.subplots(figsize=(6, 4))
-        ax.scatter(X, y, color='blue')
-        ax.plot(X, model.predict(X), color='red', label=f'R²={r2:.2f}')
-        ax.axhline(y=spec_limit, color='green', linestyle='--')
-        ax.set_title("Regression Analysis")
-        ax.legend()
-        st.pyplot(fig)
+    st.session_state["ich_result"] = result
 
-        est_shelf_life = (spec_limit - intercept) / slope if slope != 0 else None
-        x_base = max([t for t, v in zip(time_values, value_inputs) if (v >= spec_limit if failure_dir == "Decreasing" else v <= spec_limit)], default=0)
-
-        ich_result = ich_shelf_life_decision(
-            x_months=x_base,
-            sig_change_3m_accel=sig_3m,
-            sig_change_6m_accel=sig_6m,
-            sig_change_intermediate=sig_int,
-            no_change_accel=not (sig_3m or sig_6m),
-            no_change_intermediate=no_int,
-            data_trend_low_variability=low_variability,
-            long_term_stats_amenable=long_term_stats_amenable,
-            stats_performed=(r2 >= 0.95 if stats_performed else False),
-            supporting_data_available=support,
-            stored_refrigerated=refrig,
-            stored_frozen=frozen
-        )
-
-        ich_result["Regression Shelf Life (Y)"] = round(est_shelf_life, 2) if est_shelf_life else "N/A"
-        ich_result["R²"] = f"{r2:.2f}"
-
-        st.session_state["ich_result"] = ich_result
-        st.session_state["est_shelf_life"] = est_shelf_life
-        st.session_state["r2"] = r2
-        st.session_state["last_fig"] = fig
-
-        st.subheader("\U0001F4CB ICH Decision Summary")
-        for k, v in ich_result.items():
-            st.write(f"**{k}**: {v}")
+    st.subheader("\U0001F4CB ICH Decision Summary")
+    for k, v in result.items():
+        st.write(f"**{k}**: {v}")
 
 
 
