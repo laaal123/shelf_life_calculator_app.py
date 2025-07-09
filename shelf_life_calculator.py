@@ -29,42 +29,47 @@ def ich_shelf_life_estimation(
         "Notes": ""
     }
 
-    if sig_change_acc:
-        if stored_refrigerated:
-            result["Proposed Shelf Life (Y)"] = x_months + 3
-            result["Decision"] = "Limited extrapolation for refrigerated product"
-            result["Notes"] = "Significant change at accelerated; refrigerated storage allows +3M"
-        elif sig_change_int:
-            result["Proposed Shelf Life (Y)"] = x_months
-            result["Decision"] = "No extrapolation"
-            result["Notes"] = "Significant change at intermediate prevents extrapolation"
-        else:
-            if stats_supported or support_data_available:
-                result["Proposed Shelf Life (Y)"] = x_months + 3
-                result["Decision"] = "Extrapolation allowed with support"
-                result["Notes"] = "Support data or R2 allows +3M"
-            else:
-                result["Proposed Shelf Life (Y)"] = x_months
-                result["Notes"] = "Insufficient statistical support"
+   if sig_change_acc:
+    if stored_refrigerated:
+        result["Proposed Shelf Life (Y)"] = x_months + 3
+        result["Decision"] = "Limited extrapolation for refrigerated product"
+        result["Notes"] = "Significant change at accelerated; refrigerated storage allows +3M"
+    elif sig_change_int:
+        result["Proposed Shelf Life (Y)"] = x_months
+        result["Decision"] = "No extrapolation"
+        result["Notes"] = "Significant change at intermediate prevents extrapolation"
     else:
-        if sig_change_int:
-            result["Proposed Shelf Life (Y)"] = x_months
-            result["Decision"] = "No extrapolation"
-            result["Notes"] = "Significant change at intermediate prevents extrapolation"
+        if stats_supported or support_data_available:
+            result["Proposed Shelf Life (Y)"] = x_months + 3
+            result["Decision"] = "Extrapolation allowed with support"
+            result["Notes"] = "Support data or R2 allows +3M"
         else:
-            if stats_supported and support_data_available:
-                result["Proposed Shelf Life (Y)"] = x_months + 6
-                result["Decision"] = "Max extrapolation with full support"
-                result["Notes"] = "R2 and extra data allow +6M"
-            elif stats_supported or support_data_available:
-                result["Proposed Shelf Life (Y)"] = x_months + 3
-                result["Decision"] = "Partial extrapolation with support"
-                result["Notes"] = "Partial support allows +3M"
-            else:
-                result["Proposed Shelf Life (Y)"] = x_months
-                result["Notes"] = "No statistical or supporting data available"
+            result["Proposed Shelf Life (Y)"] = x_months
+            result["Notes"] = "Insufficient statistical support"
 
-    return result
+else:
+    if sig_change_int:
+        result["Proposed Shelf Life (Y)"] = x_months
+        result["Decision"] = "No extrapolation"
+        result["Notes"] = "Significant change at intermediate prevents extrapolation"
+    else:
+        # No significant changes at accelerated or intermediate
+        if stats_supported and support_data_available:
+            # Full support allows up to +12 months extrapolation as per Appendix A
+            result["Proposed Shelf Life (Y)"] = x_months + 12
+            result["Decision"] = "Max extrapolation with full support (Appendix A)"
+            result["Notes"] = "Full statistical and supporting data allows +12M extrapolation"
+        elif stats_supported or support_data_available:
+            # Partial support allows +6 months extrapolation
+            result["Proposed Shelf Life (Y)"] = x_months + 6
+            result["Decision"] = "Partial extrapolation with support"
+            result["Notes"] = "Partial support allows +6M extrapolation"
+        else:
+            result["Proposed Shelf Life (Y)"] = x_months + 3
+            result["Decision"] = "Limited extrapolation with minimal support"
+            result["Notes"] = "Minimal support allows +3M extrapolation"
+
+return result
 
 # --- Streamlit UI ---
 st.set_page_config(layout="wide")
