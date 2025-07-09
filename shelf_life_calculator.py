@@ -250,12 +250,13 @@ if st.button("📊 Calculate Shelf-Life"):
                 pdf_output.seek(0)  # Move cursor back to start
 
                 # Provide download button for PDF
-                st.download_button(
-                    label="📄 Download ICH Shelf-Life"
-                    data=pdf_output,
-                    file_name="ICH_Shelf_Life_Report.pdf",
-                    mime="application/pdf"
-                )
+               st.download_button(
+               label="📄 Download ICH Shelf-Life Report (PDF)",
+               data=pdf_output,
+               file_name="ICH_Shelf_Life_Report.pdf",
+               mime="application/pdf"
+)
+
 
             except Exception as e:
                 st.error(f"PDF generation failed: {str(e)}")
