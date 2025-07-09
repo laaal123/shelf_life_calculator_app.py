@@ -96,38 +96,6 @@ def ich_shelf_life_decision(
                 result["Notes"] = "Supported by relevant data despite lack of statistical analysis"
                 return result
 
-    if sig_change_3m_accel or sig_change_6m_accel:
-        if sig_change_intermediate:
-            result["Decision"] = "0 M (no extrapolation)"
-            result["Notes"] = "Significant change at both accelerated and intermediate"
-        elif stored_refrigerated:
-            result["Proposed Shelf Life (Y)"] = x_months + 3
-            result["Decision"] = "+3 M"
-            result["Notes"] = "Refrigerated with significant change at accelerated"
-        elif long_term_stats_amenable and stats_performed and supporting_data_available:
-            result["Proposed Shelf Life (Y)"] = x_months + 6
-            result["Decision"] = "+6 M"
-            result["Notes"] = "Statistical evaluation supports extension"
-        elif long_term_stats_amenable and no_change_intermediate and stats_performed and supporting_data_available:
-            result["Proposed Shelf Life (Y)"] = x_months + 12
-            result["Decision"] = "+12 M"
-            result["Notes"] = "Statistical evaluation supports extension"
-        elif stats_performed or supporting_data_available:
-            result["Proposed Shelf Life (Y)"] = x_months + 3
-            result["Decision"] = "+3 M"
-            result["Notes"] = "Partial support available"
-        else:
-            result["Decision"] = "0 M (no extrapolation)"
-            result["Notes"] = "Insufficient support"
-    else:
-        if sig_change_intermediate:
-            result["Decision"] = "0 M (no extrapolation)"
-            result["Notes"] = "Intermediate condition shows significant change"
-        else:
-            result["Proposed Shelf Life (Y)"] = min(x_months * 2, x_months + 12)
-            result["Decision"] = "2x long-term (max +12 M)"
-            result["Notes"] = "No change in accelerated up to 6M"
-
     return result
 
 # --- Streamlit UI Integration ---
