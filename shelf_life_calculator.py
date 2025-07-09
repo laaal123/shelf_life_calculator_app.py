@@ -176,46 +176,61 @@ if st.button("📊 Calculate Shelf-Life"):
         st.subheader("📋 ICH Decision Summary")
         for k, v in ich_result.items():
             st.write(f"**{k}**: {v}")
+# --- PDF generation ---
+if st.button("📄 Generate and Download PDF Report"):
+    try:
+        if "last_fig" not in st.session_state or "ich_result" not in st.session_state:
+            st.error("Please run the shelf-life calculation first.")
+        else:
+            pdf_output = io.BytesIO()
+            doc = SimpleDocTemplate(pdf_output, pagesize=A4)
+            styles = getSampleStyleSheet()
+            story = []
 
-        if st.button("📄 Generate PDF Report"):
-            try:
-                pdf_output = io.BytesIO()
-                doc = SimpleDocTemplate(pdf_output, pagesize=A4)
-                styles = getSampleStyleSheet()
-                story = [
-                    Paragraph("ICH Stability Shelf-Life Report", styles['Title']),
-                    Spacer(1, 12),
-                    Paragraph("ICH Logic Summary", styles['Heading2'])
-                ]
+            story.append(Paragraph("Stability Study Report", styles['Title']))
+            story.append(Spacer(1, 12))
+            story.append(Paragraph(f"<b>Product Name:</b> {product_name}", styles['Normal']))
+            story.append(Paragraph(f"<b>Batch Number:</b> {batch_number}", styles['Normal']))
+            story.append(Paragraph(f"<b>Batch Size:</b> {batch_size}", styles['Normal']))
+            story.append(Paragraph(f"<b>Packaging Mode:</b> {packaging_mode}", styles['Normal']))
+            story.append(Spacer(1, 12))
 
-                table_data = [["Key", "Value"]] + [[k, str(v)] for k, v in ich_result.items()]
-                table = Table(table_data)
-                table.setStyle(TableStyle([
-                    ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                    ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
-                ]))
-                story.append(table)
-                story.append(Spacer(1, 12))
+            story.append(Paragraph(f"<b>ICH Shelf-Life Estimation Summary:</b>", styles['Heading2']))
+            shelf_life_table_data = [["Key", "Value"]] + [[k, str(v)] for k, v in st.session_state["ich_result"].items()]
+            shelf_life_table_data.append(["R²", f"{st.session_state['r2']:.2f}"])
+            if st.session_state["est_shelf_life"]:
+                shelf_life_table_data.append(["Estimated Shelf Life", f"{st.session_state['est_shelf_life']:.2f} months"])
 
-                fig_buf = io.BytesIO()
-                canvas = FigureCanvas(fig)
-                canvas.print_png(fig_buf)
-                fig_buf.seek(0)
-                story.append(Paragraph("Regression Plot", styles['Heading2']))
-                story.append(PDFImage(fig_buf, width=6 * inch, height=3 * inch))
+            table = Table(shelf_life_table_data)
+            table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+            ]))
+            story.append(table)
+            story.append(Spacer(1, 12))
 
-                doc.build(story)
-                pdf_output.seek(0)
+            fig_buf = io.BytesIO()
+            canvas = FigureCanvas(st.session_state["last_fig"])
+            canvas.print_png(fig_buf)
+            fig_buf.seek(0)
+            story.append(Paragraph("Regression Plot", styles['Heading2']))
+            story.append(PDFImage(fig_buf, width=6 * inch, height=3 * inch))
 
-                st.download_button(
-                    label="📄 Download ICH Shelf-Life Report (PDF)",
-                    data=pdf_output,
-                    file_name="ICH_Shelf_Life_Report.pdf",
-                    mime="application/pdf"
-                )
-            except Exception as e:
-                st.error(f"PDF generation failed: {str(e)}")
+            doc.build(story)
+            pdf_output.seek(0)
 
+            st.download_button(
+                label="📄 Download ICH Shelf-Life Report (PDF)",
+                data=pdf_output,
+                file_name="ICH_Shelf_Life_Report.pdf",
+                mime="application/pdf"
+            )
+    except Exception as e:
+        st.error(f"PDF generation failed: {str(e)}")
 
+st.markdown("---")
+st.markdown("Built for Pharma Quality Tools | ICH Stability Logic")
