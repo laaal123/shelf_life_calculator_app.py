@@ -5,6 +5,13 @@ from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score
 from fpdf import FPDF
 import tempfile
+import io
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image as PDFImage
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib import colors
+from reportlab.lib.units import inch
+from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 
 # ICH shelf life logic function
 def ich_shelf_life_estimation(
@@ -59,7 +66,7 @@ def ich_shelf_life_estimation(
 
     return result
 
-# Streamlit UI
+# --- Streamlit UI ---
 st.set_page_config(layout="wide")
 st.title("📈 Manual Shelf-Life Estimation & ICH Decision")
 
@@ -113,9 +120,8 @@ if st.button("📊 Calculate Shelf-Life"):
         if slope != 0:
             if failure_direction == "Decreasing":
                 est_shelf_life = (spec_limit - intercept) / slope
-            else:  # Increasing
+            else:
                 est_shelf_life = (spec_limit - intercept) / slope
-
             if est_shelf_life > 0:
                 st.success(f"Estimated Shelf-Life: {est_shelf_life:.2f} months")
             else:
@@ -132,12 +138,9 @@ if st.button("📊 Calculate Shelf-Life"):
         else:
             passing_times = [t for t, v in zip(time_values, value_inputs) if v <= spec_limit]
 
-        if not passing_times:
-            x_base = 0
-        else:
-            x_base = max(passing_times)
-
+        x_base = max(passing_times) if passing_times else 0
         stats = r2 >= 0.95
+
         ich_result = ich_shelf_life_estimation(
             x_months=x_base,
             sig_change_acc=sig_acc,
@@ -146,84 +149,73 @@ if st.button("📊 Calculate Shelf-Life"):
             stats_supported=stats,
             support_data_available=support
         )
-
         ich_result["Regression Shelf Life (Y)"] = round(est_shelf_life, 2) if est_shelf_life else "N/A"
 
         for k, v in ich_result.items():
             st.write(f"**{k}**: {v}")
 
-      # --- Export PDF ---
-import io
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image as PDFImage
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.lib import colors
-from reportlab.lib.units import inch
+        # 📦 Product Metadata
+        st.markdown("### 📦 Product Information for Report")
+        product_name = st.text_input("Product Name", "Example Product")
+        batch_number = st.text_input("Batch Number", "BN-001")
+        batch_size = st.text_input("Batch Size", "10000 Tablets")
+        packaging_mode = st.text_input("Packaging Mode", "Blister Pack")
 
-# Add inputs for product metadata
-st.markdown("### 📦 Product Information for Report")
-product_name = st.text_input("Product Name", "Example Product")
-batch_number = st.text_input("Batch Number", "BN-001")
-batch_size = st.text_input("Batch Size", "10000 Tablets")
-packaging_mode = st.text_input("Packaging Mode", "Blister Pack")
+        if st.button("📄 Generate and Download PDF Report"):
+            # Generate PDF
+            pdf_output = io.BytesIO()
+            doc = SimpleDocTemplate(pdf_output, pagesize=A4)
+            styles = getSampleStyleSheet()
+            story = []
 
-if st.button("📄 Generate and Download PDF Report"):
-    # Prepare PDF content
-    pdf_output = io.BytesIO()
-    doc = SimpleDocTemplate(pdf_output, pagesize=A4)
-    styles = getSampleStyleSheet()
-    story = []
+            # Title & Metadata
+            story.append(Paragraph("Stability Study Report", styles['Title']))
+            story.append(Spacer(1, 12))
+            story.append(Paragraph(f"<b>Product Name:</b> {product_name}", styles['Normal']))
+            story.append(Paragraph(f"<b>Batch Number:</b> {batch_number}", styles['Normal']))
+            story.append(Paragraph(f"<b>Batch Size:</b> {batch_size}", styles['Normal']))
+            story.append(Paragraph(f"<b>Packaging Mode:</b> {packaging_mode}", styles['Normal']))
+            story.append(Spacer(1, 12))
 
-    # Title & Metadata
-    story.append(Paragraph("Stability Study Report", styles['Title']))
-    story.append(Spacer(1, 12))
-    story.append(Paragraph(f"<b>Product Name:</b> {product_name}", styles['Normal']))
-    story.append(Paragraph(f"<b>Batch Number:</b> {batch_number}", styles['Normal']))
-    story.append(Paragraph(f"<b>Batch Size:</b> {batch_size}", styles['Normal']))
-    story.append(Paragraph(f"<b>Packaging Mode:</b> {packaging_mode}", styles['Normal']))
-    story.append(Spacer(1, 12))
+            # Table Data
+            shelf_life_table_data = [["Key", "Value"]]
+            for k, v in ich_result.items():
+                shelf_life_table_data.append([k, str(v)])
+            shelf_life_table_data.append(["R²", f"{r2:.2f}"])
+            if est_shelf_life:
+                shelf_life_table_data.append(["Estimated Shelf Life", f"{est_shelf_life:.2f} months"])
 
-    # Shelf-Life Table
-    shelf_life_table_data = [["Key", "Value"]]
-    for k, v in ich_result.items():
-        shelf_life_table_data.append([k, str(v)])
-    shelf_life_table_data.append(["R²", f"{r2:.2f}"])
-    if est_shelf_life:
-        shelf_life_table_data.append(["Estimated Shelf Life", f"{est_shelf_life:.2f} months"])
+            tbl = Table(shelf_life_table_data, hAlign='LEFT')
+            tbl.setStyle(TableStyle([
+                ('BACKGROUND', (0,0), (-1,0), colors.grey),
+                ('TEXTCOLOR',(0,0),(-1,0),colors.whitesmoke),
+                ('ALIGN',(0,0),(-1,-1),'CENTER'),
+                ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+                ('BOTTOMPADDING', (0,0), (-1,0), 12),
+                ('GRID', (0,0), (-1,-1), 0.5, colors.black),
+            ]))
+            story.append(Paragraph(f"<b>ICH Shelf-Life Estimation Summary:</b>", styles['Heading2']))
+            story.append(tbl)
+            story.append(Spacer(1, 12))
 
-    tbl = Table(shelf_life_table_data, hAlign='LEFT')
-    tbl.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), colors.grey),
-        ('TEXTCOLOR',(0,0),(-1,0),colors.whitesmoke),
-        ('ALIGN',(0,0),(-1,-1),'CENTER'),
-        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-        ('BOTTOMPADDING', (0,0), (-1,0), 12),
-        ('GRID', (0,0), (-1,-1), 0.5, colors.black),
-    ]))
-    story.append(Paragraph(f"<b>ICH Shelf-Life Estimation Summary:</b>", styles['Heading2']))
-    story.append(tbl)
-    story.append(Spacer(1, 12))
+            # Add Chart
+            fig_buf = io.BytesIO()
+            canvas = FigureCanvas(fig)
+            canvas.print_png(fig_buf)
+            fig_buf.seek(0)
+            story.append(Paragraph(f"<b>Regression Plot:</b>", styles['Heading2']))
+            story.append(PDFImage(fig_buf, width=6*inch, height=3*inch))
+            story.append(Spacer(1, 12))
 
-    # Add Chart Image to PDF
-    from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
-    fig_buf = io.BytesIO()
-    canvas = FigureCanvas(fig)
-    canvas.print_png(fig_buf)
-    fig_buf.seek(0)
-
-    story.append(Paragraph(f"<b>Regression Plot:</b>", styles['Heading2']))
-    story.append(PDFImage(fig_buf, width=6*inch, height=3*inch))
-    story.append(Spacer(1, 12))
-
-    # Build and trigger download
-    doc.build(story)
-    st.download_button(
-        label="📄 Download PDF Report",
-        data=pdf_output.getvalue(),
-        file_name="ICH_Shelf_Life_Report.pdf",
-        mime="application/pdf"
-    )
-
+            # Export
+            doc.build(story)
+            st.download_button(
+                label="📄 Download PDF Report",
+                data=pdf_output.getvalue(),
+                file_name="ICH_Shelf_Life_Report.pdf",
+                mime="application/pdf"
+            )
 
 st.markdown("---")
 st.markdown("Built for Pharma Quality Tools | ICH Stability Logic")
+
