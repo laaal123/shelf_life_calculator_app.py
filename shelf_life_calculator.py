@@ -187,6 +187,7 @@ if st.button("\U0001F4CA Calculate Shelf-Life"):
             st.write(f"**{k}**: {v}")
 
 
+
 # --- PDF generation ---
 if st.button("📄 Generate and Download PDF Report"):
     try:
