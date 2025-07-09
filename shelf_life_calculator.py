@@ -47,9 +47,11 @@ data_trend_low_variability = st.checkbox("\U0001F4C9 Low Variability Trend")
 no_change_accel = st.checkbox("\U0001F4C9 No Change in Accelerated")
 change_long_term_data = st.checkbox("\U0001F4C8 Change in Long-Term Data")
 no_sig_change_intermediate = st.checkbox("\u26a0\ufe0f No Significant Change at Intermediate")
-no_change_longterm= st.checkbox("\U0001F4C8 No Change in Long-Term Data")
-no_variability= st.checkbox("\U0001F4C9 No Variability Trend")
-change_overtime_accel= st.checkbox("\U0001F4C9 little Change in Accelerated over time")
+no_change_longterm = st.checkbox("\U0001F4C8 No Change in Long-Term Data")
+no_variability = st.checkbox("\U0001F4C9 No Variability Trend")
+change_overtime_accel = st.checkbox("\U0001F4C9 little Change in Accelerated over time")
+no_long_term_stats_amenable = st.checkbox("\U0001F4C8 Not Long-term Stats Amenable")
+no_stats_performed = st.checkbox("\U0001F4CA Not Stats Performed (R² ≥ 0.95)")
 
 # Stability Data Entry
 st.markdown("### \U0001F9EE Stability Data Entry")
@@ -110,42 +112,17 @@ def determine_shelf_life(
         result["Notes"] = "Backed by statistical analysis and supporting data"
         return result
 
-    
-    if sig_change_6m_accel:
-        if sig_change_3m_accel:
-            if long_term_stats_amenable and stats_performed and supporting_data_available:
-                result["Proposed Shelf Life (Y)"] = min(x_months * 1.5, x_months + 6)
-                result["Decision"] = "Up to 1.5x (max +6 M)"
-                result["Notes"] = "Backed by statistical analysis and supporting data"
-                return result
-            else:
-                 result["Proposed Shelf Life (Y)"] = x_months + 3
-                 result["Decision"] = "Up to +3 M"
-                 result["Notes"] = "Based on relevant supporting data and regression supports this extrapolation"
-           
+    if no_change_accel and (change_overtime_accel or data_trend_low_variability) and (no_long_term_stats_amenable or no_stats_performed):
+        result["Proposed Shelf Life (Y)"] = min(x_months * 1.5, x_months + 6)
+        result["Decision"] = "Up to 1.5x (max +6 M)"
+        result["Notes"] = "Backed by statistical analysis and supporting data"
+        return result
 
-    if not sig_change_6m_accel:
-        if not change_long_term_data:
-            if stored_refrigerated:
-                result["Proposed Shelf Life (Y)"] = min(x_months * 1.5, x_months + 6)
-                result["Decision"] = "Up to 1.5x (max +6 M)"
-                result["Notes"] = "Low variability; statistical analysis unnecessary"
-            else:
-                result["Proposed Shelf Life (Y)"] = min(x_months * 2, x_months + 12)
-                result["Decision"] = "Up to 2x (max +12 M)"
-                result["Notes"] = "Low variability; statistical analysis unnecessary"
-            return result
-
-        elif change_long_term_data:
-            if long_term_stats_amenable and stats_performed:
-                result["Proposed Shelf Life (Y)"] = min(x_months * 2, x_months + 12)
-                result["Decision"] = "Up to 2x (max +12 M)"
-                result["Notes"] = "Backed by statistical analysis and relevant supporting data"
-            else:
-                result["Proposed Shelf Life (Y)"] = min(x_months * 1.5, x_months + 6)
-                result["Decision"] = "Up to 1.5x (max +6 M)"
-                result["Notes"] = "Backed by supporting data despite limited statistical support"
-            return result
+    if no_change_accel and (change_overtime_accel or data_trend_low_variability) and (no_long_term_stats_amenable or no_stats_performed) and stored_refrigerated:
+        result["Proposed Shelf Life (Y)"] = min ("Up to 1.5x (max +3 M)")
+        result["Decision"] = "Up to 1.5x (max +3 M)"
+        result["Notes"] = "Backed by statistical analysis and supporting data"
+        return result
 
     return result
 
