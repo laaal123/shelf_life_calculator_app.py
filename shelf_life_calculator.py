@@ -32,7 +32,7 @@ packaging_mode = st.sidebar.text_input("Packaging Mode", "HDPE Bottle")
 
 # Streamlit UI
 st.set_page_config(layout="wide")
-st.title("\U0001F4C8 ICH Shelf-Life Extrapolation Tool")
+st.title("\U0001F4C8 ICH Shelf-Life Extrapolation Tool Tick As Per Appendix A (ICH 1E)")
 
 # Checkboxes for decision logic inputs
 stored_frozen = st.checkbox("\u2744\ufe0f Stored Frozen")
