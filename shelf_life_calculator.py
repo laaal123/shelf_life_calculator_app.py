@@ -79,6 +79,7 @@ st.title("📈 ICH Shelf-Life Estimation App")
 st.markdown("### 🧪 Observations")
 sig_3m = st.checkbox("⚠️ Significant Change at 3M Accelerated", value=False)
 sig_6m = st.checkbox("⚠️ Significant Change at 6M Accelerated", value=False)
+no_int = st.checkbox("No Change at Intermediate", value=false)
 sig_int = st.checkbox("⚠️ Significant Change at Intermediate (30°C, 6M)", value=False)
 refrig = st.checkbox("❄️ Stored Refrigerated", value=False)
 frozen = st.checkbox("❄️ Stored Frozen", value=False)
@@ -134,6 +135,7 @@ if st.button("📊 Calculate Shelf-Life"):
             sig_change_6m_accel=sig_6m,
             sig_change_intermediate=sig_int,
             no_change_accel=not (sig_3m or sig_6m),
+            no_change_intermediate=no_int,
             data_trend_low_variability=low_variability,
             long_term_stats_amenable=long_term_stats_amenable,
             stats_performed=(r2 >= 0.95 if stats_performed else False),
