@@ -17,6 +17,7 @@ def ich_shelf_life_decision(
     sig_change_6m_accel: bool,
     sig_change_intermediate: bool,
     no_change_accel: bool,
+    no_change_intermediate: bool,
     data_trend_low_variability: bool,
     long_term_stats_amenable: bool,
     stats_performed: bool,
@@ -49,6 +50,10 @@ def ich_shelf_life_decision(
             result["Proposed Shelf Life (Y)"] = x_months + 6
             result["Decision"] = "+6 M"
             result["Notes"] = "Statistical evaluation supports extension"
+        elif long_term_stats_amenable and no_change_intermediate and stats_performed and supporting_data_available:
+            result["Proposed Shelf Life (Y)"] = x_months + 12
+            result["Decision"] = "+12 M"
+            result["Notes"] = "Statistical evaluation supports extension"
         elif stats_performed or supporting_data_available:
             result["Proposed Shelf Life (Y)"] = x_months + 3
             result["Decision"] = "+3 M"
@@ -60,33 +65,10 @@ def ich_shelf_life_decision(
         if sig_change_intermediate:
             result["Decision"] = "0 M (no extrapolation)"
             result["Notes"] = "Intermediate condition shows significant change"
-        elif data_trend_low_variability:
-            if stored_refrigerated:
-                result["Proposed Shelf Life (Y)"] = min(x_months * 1.5, x_months + 6)
-                result["Decision"] = "1.5x long-term (max +6 M)"
-                result["Notes"] = "Low variability and refrigerated"
-            else:
-                result["Proposed Shelf Life (Y)"] = min(x_months * 2, x_months + 12)
-                result["Decision"] = "2x long-term (max +12 M)"
-                result["Notes"] = "Low variability and room temp"
         else:
-            if long_term_stats_amenable:
-                if stats_performed and supporting_data_available:
-                    result["Proposed Shelf Life (Y)"] = min(x_months * 2, x_months + 12)
-                    result["Decision"] = "2x long-term (max +12 M)"
-                    result["Notes"] = "Statistical and support data available"
-                else:
-                    result["Proposed Shelf Life (Y)"] = min(x_months * 1.5, x_months + 6)
-                    result["Decision"] = "1.5x long-term (max +6 M)"
-                    result["Notes"] = "Partial statistical or support data"
-            elif supporting_data_available:
-                result["Proposed Shelf Life (Y)"] = min(x_months * 1.5, x_months + 6)
-                result["Decision"] = "1.5x long-term (max +6 M)"
-                result["Notes"] = "Support data but no stats"
-            else:
-                result["Proposed Shelf Life (Y)"] = x_months + 3
-                result["Decision"] = "0–3 M (minimal extrapolation)"
-                result["Notes"] = "No support data"
+            result["Proposed Shelf Life (Y)"] = min(x_months * 2, x_months + 12)
+            result["Decision"] = "2x long-term (max +12 M)"
+            result["Notes"] = "No change in accelerated up to 6M"
 
     return result
 
@@ -207,4 +189,5 @@ if st.button("📊 Calculate Shelf-Life"):
                 )
             except Exception as e:
                 st.error(f"PDF generation failed: {str(e)}")
+
 
