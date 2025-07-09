@@ -182,7 +182,28 @@ if st.button("\U0001F4CA Evaluate Shelf Life"):
     result["Packaging Mode"] = packaging_mode
 
     st.session_state["ich_result"] = result
+        ich_result = ich_shelf_life_decision(
+            x_months=x_base,
+            sig_change_3m_accel=sig_3m,
+            sig_change_6m_accel=sig_6m,
+            sig_change_intermediate=sig_int,
+            no_change_accel=not (sig_3m or sig_6m),
+            no_change_intermediate=no_int,
+            data_trend_low_variability=low_variability,
+            long_term_stats_amenable=long_term_stats_amenable,
+            stats_performed=(r2 >= 0.95 if stats_performed else False),
+            supporting_data_available=support,
+            stored_refrigerated=refrig,
+            stored_frozen=frozen
+        )
 
+        ich_result["Regression Shelf Life (Y)"] = round(est_shelf_life, 2) if est_shelf_life else "N/A"
+        ich_result["R²"] = f"{r2:.2f}"
+
+        st.session_state["ich_result"] = ich_result
+        st.session_state["est_shelf_life"] = est_shelf_life
+        st.session_state["r2"] = r2
+        st.session_state["last_fig"] = fig
     st.subheader("\U0001F4CB ICH Decision Summary")
     for k, v in result.items():
         st.write(f"**{k}**: {v}")
