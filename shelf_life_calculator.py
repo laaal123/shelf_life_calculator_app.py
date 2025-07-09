@@ -2,183 +2,156 @@
 
 import streamlit as st
 import pandas as pd
-import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score
 from fpdf import FPDF
 import tempfile
-import os
-from io import BytesIO
 
-st.set_page_config(layout="wide")
-st.title("📈 Shelf-Life Calculator from Stability Data (ICH Based)")
+# ICH shelf life logic function
+def ich_shelf_life_estimation(
+    x_months: float,
+    sig_change_acc: bool,
+    sig_change_int: bool,
+    stored_refrigerated: bool,
+    stats_supported: bool,
+    support_data_available: bool
+) -> dict:
+    result = {
+        "Base (X)": x_months,
+        "Proposed Shelf Life (Y)": x_months,
+        "Decision": "No extrapolation",
+        "Notes": ""
+    }
 
-st.markdown("### 📂 Upload CSV File or Enter Data Manually")
-
-uploaded_file = st.file_uploader(
-    "Upload CSV with columns: Time, Condition, Parameter, Value",
-    type=["csv"]
-)
-
-manual_input = st.checkbox("Or Enter Data Manually")
-
-# Initialize dataset
-data = pd.DataFrame(columns=["Time", "Condition", "Parameter", "Value"])
-manual_spec_limits = {}
-results_summary = []
-figures = []
-
-if uploaded_file:
-    try:
-        data = pd.read_csv(uploaded_file)
-        st.success("CSV loaded successfully.")
-    except Exception as e:
-        st.error(f"Error loading CSV: {e}")
-
-elif manual_input:
-    with st.form("manual_form"):
-        condition = st.selectbox("Stability Condition", ["25C_60RH", "30C_65RH", "40C_75RH"])
-        param_name = st.text_input("Parameter Name", "Assay")
-        timepoints = st.text_area("Time Points (comma-separated)", "0,1,3,6,9,12")
-        values = st.text_area("Values (comma-separated)", "100,98,95,92,90,88")
-        spec_limit = st.number_input("Specification Limit", value=85.0, step=0.1)
-        submit = st.form_submit_button("Add to Dataset")
-
-        if submit:
-            try:
-                tpts = [float(t.strip()) for t in timepoints.split(",")]
-                vals = [float(v.strip()) for v in values.split(",")]
-                if len(tpts) != len(vals):
-                    st.error("Time and value counts must match.")
-                else:
-                    new_data = pd.DataFrame({
-                        "Time": tpts,
-                        "Condition": condition,
-                        "Parameter": param_name,
-                        "Value": vals
-                    })
-                    data = pd.concat([data, new_data], ignore_index=True)
-                    manual_spec_limits[(param_name, condition)] = spec_limit
-                    st.success("Added successfully.")
-            except:
-                st.error("Invalid input format.")
-
-# ICH logic function
-def estimate_shelf_life_ich(x, stats=False, support_data=False, refrigerated=False, failure_month=None):
-    formula = ""
-    if failure_month is not None and failure_month <= x:
-        formula = f"Failed at {failure_month} months"
-        return failure_month, formula
-    if stats and support_data:
-        if refrigerated:
-            formula = "min(1.5 * x, x + 6)  # ICH Case 2"
-            return min(1.5 * x, x + 6), formula
+    if sig_change_acc:
+        if stored_refrigerated:
+            result["Proposed Shelf Life (Y)"] = x_months + 3
+            result["Decision"] = "Limited extrapolation for refrigerated product"
+            result["Notes"] = "Significant change at accelerated; refrigerated storage allows +3M"
+        elif sig_change_int:
+            result["Proposed Shelf Life (Y)"] = x_months
+            result["Decision"] = "No extrapolation"
+            result["Notes"] = "Significant change at intermediate prevents extrapolation"
         else:
-            formula = "min(2 * x, x + 12)  # ICH Case 1"
-            return min(2 * x, x + 12), formula
-    elif stats or support_data:
-        if refrigerated:
-            formula = "x + 3  # ICH Case 4"
-            return x + 3, formula
-        else:
-            formula = "min(1.5 * x, x + 6)  # ICH Case 3"
-            return min(1.5 * x, x + 6), formula
-    else:
-        formula = "x  # ICH Case 5"
-        return x, formula
-
-if not data.empty:
-    st.markdown("### 👁️ Data Preview")
-    st.dataframe(data)
-
-    for (condition, param), df_group in data.groupby(["Condition", "Parameter"]):
-        st.markdown(f"#### 📊 Regression: {param} under {condition}")
-        df = df_group.sort_values("Time")
-        X = df["Time"].values.reshape(-1, 1)
-        y = df["Value"].values
-
-        model = LinearRegression().fit(X, y)
-        pred = model.predict(X)
-        slope, intercept = model.coef_[0], model.intercept_
-        r2 = r2_score(y, pred)
-
-        threshold = manual_spec_limits.get((param, condition), 85.0)
-        if st.checkbox(f"Set spec limit for {param} at {condition}?", key=f"spec_{param}_{condition}"):
-            threshold = st.number_input(f"Spec limit for {param}-{condition}", value=threshold, key=f"thresh_{param}_{condition}")
-
-        fig, ax = plt.subplots(figsize=(6, 4))
-        ax.scatter(X, y, label="Observed", color="blue")
-        ax.plot(X, pred, label=f"Fit (R²={r2:.2f})", color="red")
-        ax.axhline(y=threshold, color="green", linestyle="--", label=f"Spec = {threshold}")
-        ax.set_title(f"{param} over Time ({condition})")
-        ax.set_xlabel("Months")
-        ax.set_ylabel("Value")
-        ax.grid(True)
-        ax.legend()
-        st.pyplot(fig)
-
-        tmpfile = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
-        fig.savefig(tmpfile.name)
-        figures.append((param, condition, tmpfile.name))
-
-        if slope != 0:
-            est_months = (threshold - intercept) / slope
-            if est_months > 0:
-                st.success(f"Estimated Shelf-Life: {est_months:.2f} months")
-
-                support = st.checkbox(f"Supporting data for {param}-{condition}?", key=f"sup_{param}_{condition}")
-                cold = st.checkbox(f"Refrigerated product?", key=f"cold_{param}_{condition}")
-                failed = st.checkbox(f"Did it fail?", key=f"fail_{param}_{condition}")
-                fail_mo = None
-                if failed:
-                    fail_mo = st.number_input("Failure month", min_value=0.0, max_value=est_months, key=f"fail_month_{param}_{condition}")
-
-                stats_pass = r2 >= 0.95
-                ich_months, formula_used = estimate_shelf_life_ich(est_months, stats_pass, support, cold, fail_mo)
-
-                results_summary.append({
-                    "Parameter": param,
-                    "Condition": condition,
-                    "R2": round(r2, 3),
-                    "Estimated Shelf Life": round(est_months, 2),
-                    "ICH Shelf Life": round(ich_months, 2),
-                    "Formula": formula_used
-                })
-
-                st.success(f"ICH Shelf-Life = {ich_months:.2f} months using `{formula_used}`")
+            if stats_supported or support_data_available:
+                result["Proposed Shelf Life (Y)"] = x_months + 3
+                result["Decision"] = "Extrapolation allowed with support"
+                result["Notes"] = "Support data or R2 allows +3M"
             else:
-                st.warning("Estimated time is negative — already below threshold.")
+                result["Proposed Shelf Life (Y)"] = x_months
+                result["Notes"] = "Insufficient statistical support"
+    else:
+        if sig_change_int:
+            result["Proposed Shelf Life (Y)"] = x_months
+            result["Decision"] = "No extrapolation"
+            result["Notes"] = "Significant change at intermediate prevents extrapolation"
         else:
-            st.error("Flat regression line. Cannot compute shelf life.")
+            if stats_supported and support_data_available:
+                result["Proposed Shelf Life (Y)"] = x_months + 6
+                result["Decision"] = "Max extrapolation with full support"
+                result["Notes"] = "R2 and extra data allow +6M"
+            elif stats_supported or support_data_available:
+                result["Proposed Shelf Life (Y)"] = x_months + 3
+                result["Decision"] = "Partial extrapolation with support"
+                result["Notes"] = "Partial support allows +3M"
+            else:
+                result["Proposed Shelf Life (Y)"] = x_months
+                result["Notes"] = "No statistical or supporting data available"
 
-# PDF report
-if results_summary:
-    if st.button("📂 Download Combined Report as PDF"):
+    return result
+
+# Streamlit UI
+st.set_page_config(layout="wide")
+st.title("📈 Manual Shelf-Life Estimation & ICH Decision")
+
+st.markdown("### ✍️ Input Manual Data (25°C/60%RH)")
+param = st.text_input("Parameter Name", "Assay")
+spec_limit = st.number_input("Specification Limit", value=85.0)
+initial = st.number_input("Initial Value", value=100.0)
+m1 = st.number_input("1M", value=99.0)
+m3 = st.number_input("3M", value=97.0)
+m6 = st.number_input("6M", value=94.0)
+m9 = st.number_input("9M", value=92.0)
+m12 = st.number_input("12M", value=89.0)
+m18 = st.number_input("18M", value=87.0)
+m24 = st.number_input("24M", value=85.0)
+m36 = st.number_input("36M", value=83.0)
+m48 = st.number_input("48M", value=80.0)
+
+values = [initial, m1, m3, m6, m9, m12, m18, m24, m36, m48]
+times = [0, 1, 3, 6, 9, 12, 18, 24, 36, 48]
+
+if st.button("📊 Calculate Shelf-Life"):
+    df = pd.DataFrame({"Time": times, "Value": values})
+    X = df["Time"].values.reshape(-1, 1)
+    y = df["Value"].values
+    model = LinearRegression()
+    model.fit(X, y)
+    pred = model.predict(X)
+    slope = model.coef_[0]
+    intercept = model.intercept_
+    r2 = r2_score(y, pred)
+
+    fig, ax = plt.subplots(figsize=(6, 4))
+    ax.scatter(X, y, color='blue', label='Observed')
+    ax.plot(X, pred, color='red', label=f'Regression (R²={r2:.2f})')
+    ax.axhline(y=spec_limit, color='green', linestyle='--', label=f'Spec Limit = {spec_limit}')
+    ax.set_xlabel("Time (Months)")
+    ax.set_ylabel("Value")
+    ax.legend()
+    ax.grid(True)
+    st.pyplot(fig)
+
+    if slope != 0:
+        est_shelf_life = (spec_limit - intercept) / slope
+        st.success(f"Estimated Shelf-Life: {est_shelf_life:.2f} months")
+    else:
+        st.warning("Cannot calculate shelf-life: slope is zero.")
+
+    st.markdown("### 🧪 ICH Criteria")
+    x_max = max(times)
+    sig_acc = st.checkbox("Significant change at 3M Accelerated?", value=False)
+    sig_int = st.checkbox("Significant change at 6M Intermediate?", value=False)
+    refrig = st.checkbox("Stored refrigerated?", value=False)
+    stats = r2 >= 0.95
+    support = st.checkbox("Supporting data available?", value=False)
+
+    ich_result = ich_shelf_life_estimation(
+        x_months=x_max,
+        sig_change_acc=sig_acc,
+        sig_change_int=sig_int,
+        stored_refrigerated=refrig,
+        stats_supported=stats,
+        support_data_available=support
+    )
+
+    for k, v in ich_result.items():
+        st.write(f"**{k}**: {v}")
+
+    # PDF Export
+    if st.button("📄 Download PDF Report"):
         pdf = FPDF()
-        pdf.set_auto_page_break(auto=True, margin=15)
         pdf.add_page()
-        pdf.set_font("Arial", 'B', 16)
-        pdf.cell(0, 10, "Stability Summary Report", ln=True, align="C")
-        pdf.ln(10)
-        pdf.set_font("Arial", '', 12)
+        pdf.set_font("Arial", size=12)
+        pdf.cell(200, 10, txt="Shelf-Life Report", ln=1, align="C")
+        pdf.ln(5)
+        pdf.cell(200, 10, txt=f"Parameter: {param}", ln=1)
+        pdf.cell(200, 10, txt=f"R²: {r2:.2f}", ln=1)
+        pdf.cell(200, 10, txt=f"Estimated Shelf-Life: {est_shelf_life:.2f} months", ln=1)
+        pdf.cell(200, 10, txt="ICH Decision Summary:", ln=1)
+        for k, v in ich_result.items():
+            pdf.cell(200, 10, txt=f"{k}: {v}", ln=1)
 
-        for res in results_summary:
-            for k, v in res.items():
-                pdf.cell(0, 8, f"{k}: {v}", ln=True)
-            pdf.ln(4)
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as f:
+            pdf.output(f.name)
+            st.download_button(
+                label="📄 Download Report",
+                data=open(f.name, "rb").read(),
+                file_name="ICH_Shelf_Life_Report.pdf",
+                mime="application/pdf"
+            )
 
-        for param, cond, path in figures:
-            pdf.add_page()
-            pdf.set_font("Arial", 'B', 14)
-            pdf.cell(0, 10, f"Graph: {param} under {cond}", ln=True)
-            pdf.image(path, x=10, y=30, w=180)
-
-        buf = BytesIO()
-        pdf.output(buf)
-        buf.seek(0)
-
-        st.download_button("📄 Download PDF Report", data=buf, file_name="Stability_Report.pdf", mime="application/pdf")
 
 st.markdown("---")
 st.markdown("Built for Pharma Quality Tools | ICH Stability Logic")
