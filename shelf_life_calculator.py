@@ -11,10 +11,10 @@ from reportlab.lib import colors
 from reportlab.lib.units import inch
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 
-# ICH shelf life logic function with "no_sig_change_acc" param
 def ich_shelf_life_estimation(
     x_months: float,
     no_sig_change_acc: bool,
+    no_sig_change_6M_acc: bool,
     sig_change_acc: bool,
     sig_change_int: bool,
     stored_refrigerated: bool,
@@ -29,46 +29,66 @@ def ich_shelf_life_estimation(
     }
 
     if sig_change_acc:
-        # Significant change at accelerated condition
+        # Significant change at accelerated (3M) condition
         if stored_refrigerated:
+            # Refrigerated: limited extrapolation +3 months
             result["Proposed Shelf Life (Y)"] = x_months + 3
             result["Decision"] = "Limited extrapolation for refrigerated product"
             result["Notes"] = "Significant change at accelerated; refrigerated storage allows +3M"
         elif sig_change_int:
+            # Significant change at intermediate prevents extrapolation
             result["Proposed Shelf Life (Y)"] = x_months
             result["Decision"] = "No extrapolation"
             result["Notes"] = "Significant change at intermediate prevents extrapolation"
         else:
+            # No intermediate change but accelerated change
             if stats_supported or support_data_available:
                 result["Proposed Shelf Life (Y)"] = x_months + 3
                 result["Decision"] = "Extrapolation allowed with support"
-                result["Notes"] = "Support data or R2 allows +3M"
+                result["Notes"] = "Support data or stats allow limited +3M extrapolation"
             else:
                 result["Proposed Shelf Life (Y)"] = x_months
                 result["Notes"] = "Insufficient statistical support"
     else:
-        # No significant change at accelerated
-        if sig_change_int:
-            result["Proposed Shelf Life (Y)"] = x_months
-            result["Decision"] = "No extrapolation"
-            result["Notes"] = "Significant change at intermediate prevents extrapolation"
-        else:
-            # No significant changes at accelerated or intermediate
-            if stats_supported and support_data_available and no_sig_change_acc:
-                # Full support & no sig change at accelerated: +12 months allowed (Appendix A)
+        # No significant change at accelerated (3M)
+        if no_sig_change_6M_acc:
+            # No sig change also at 6M accelerated → better confidence in stability
+            if stats_supported and support_data_available:
+                # Full support: max +12 months extrapolation (per ICH guideline)
                 result["Proposed Shelf Life (Y)"] = x_months + 12
-                result["Decision"] = "Max extrapolation with full support (Appendix A)"
-                result["Notes"] = "Full statistical and supporting data allows +12M extrapolation"
+                result["Decision"] = "Max extrapolation (12M) with full support"
+                result["Notes"] = "No significant change at 3M & 6M accelerated; strong statistical and supporting data"
             elif stats_supported or support_data_available:
-                # Partial support: +6 months
+                # Partial support: moderate extrapolation +6 months
                 result["Proposed Shelf Life (Y)"] = x_months + 6
-                result["Decision"] = "Partial extrapolation with support"
-                result["Notes"] = "Partial support allows +6M extrapolation"
+                result["Decision"] = "Partial extrapolation (6M) with support"
+                result["Notes"] = "Partial support allows moderate extrapolation"
             else:
-                # Minimal support: +3 months
+                # Minimal support: limited extrapolation +3 months
                 result["Proposed Shelf Life (Y)"] = x_months + 3
-                result["Decision"] = "Limited extrapolation with minimal support"
-                result["Notes"] = "Minimal support allows +3M extrapolation"
+                result["Decision"] = "Limited extrapolation (3M) with minimal support"
+                result["Notes"] = "Minimal support allows limited extrapolation"
+        else:
+            # Significant change at 6M accelerated or unknown
+            if sig_change_int:
+                # Intermediate significant change prevents extrapolation
+                result["Proposed Shelf Life (Y)"] = x_months
+                result["Decision"] = "No extrapolation"
+                result["Notes"] = "Significant change at intermediate prevents extrapolation"
+            else:
+                # Intermediate not changed, 6M accelerated changed or unknown
+                if stats_supported and support_data_available and no_sig_change_acc:
+                    result["Proposed Shelf Life (Y)"] = x_months + 12
+                    result["Decision"] = "Max extrapolation (12M) with full support but uncertain 6M accelerated"
+                    result["Notes"] = "Full support and no sig change at 3M accelerated; 6M accelerated data uncertain"
+                elif stats_supported or support_data_available:
+                    result["Proposed Shelf Life (Y)"] = x_months + 6
+                    result["Decision"] = "Partial extrapolation (6M) with support"
+                    result["Notes"] = "Partial support allows moderate extrapolation; 6M accelerated data uncertain"
+                else:
+                    result["Proposed Shelf Life (Y)"] = x_months
+                    result["Decision"] = "No extrapolation"
+                    result["Notes"] = "Insufficient support and possible change at 6M accelerated"
 
     return result
 
@@ -76,9 +96,9 @@ def ich_shelf_life_estimation(
 st.set_page_config(layout="wide")
 st.title("📈 Manual Shelf-Life Estimation & ICH Decision")
 
-# --- All inputs shown immediately ---
 st.markdown("### 🧪 Pre-Input ICH Extrapolation Conditions")
 no_sig_acc = st.checkbox("No significant change at 3M Accelerated?", value=True)
+no_sig_6M_acc = st.checkbox("No significant change at 6M Accelerated?", value=True)
 sig_acc = st.checkbox("Significant change at 3M Accelerated?", value=False)
 sig_int = st.checkbox("Significant change at 6M Intermediate?", value=False)
 refrig = st.checkbox("Stored refrigerated?", value=False)
@@ -106,7 +126,6 @@ batch_number = st.text_input("Batch Number", "BN-001")
 batch_size = st.text_input("Batch Size", "10000 Tablets")
 packaging_mode = st.text_input("Packaging Mode", "Blister Pack")
 
-# --- Calculation and result display ---
 if st.button("📊 Calculate Shelf-Life"):
     if len(time_values) < 3:
         st.error("At least 3 valid time points are required for regression.")
@@ -154,6 +173,7 @@ if st.button("📊 Calculate Shelf-Life"):
         ich_result = ich_shelf_life_estimation(
             x_months=x_base,
             no_sig_change_acc=no_sig_acc,
+            no_sig_change_6M_acc=no_sig_6M_acc,
             sig_change_acc=sig_acc,
             sig_change_int=sig_int,
             stored_refrigerated=refrig,
@@ -165,13 +185,12 @@ if st.button("📊 Calculate Shelf-Life"):
         for k, v in ich_result.items():
             st.write(f"**{k}**: {v}")
 
-        # Store fig and results in session state to allow PDF generation later
+        # Save for PDF generation
         st.session_state["last_fig"] = fig
         st.session_state["ich_result"] = ich_result
         st.session_state["r2"] = r2
         st.session_state["est_shelf_life"] = est_shelf_life
 
-# --- PDF generation ---
 if st.button("📄 Generate and Download PDF Report"):
     try:
         if "last_fig" not in st.session_state or "ich_result" not in st.session_state:
@@ -208,6 +227,7 @@ if st.button("📄 Generate and Download PDF Report"):
             story.append(table)
             story.append(Spacer(1, 12))
 
+            # Add Regression Plot Image
             fig_buf = io.BytesIO()
             canvas = FigureCanvas(st.session_state["last_fig"])
             canvas.print_png(fig_buf)
@@ -229,5 +249,4 @@ if st.button("📄 Generate and Download PDF Report"):
 
 st.markdown("---")
 st.markdown("Built for Pharma Quality Tools | ICH Stability Logic")
-
 
