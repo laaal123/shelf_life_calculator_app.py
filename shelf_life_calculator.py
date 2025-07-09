@@ -81,14 +81,13 @@ def determine_shelf_life(
                 result["Notes"] = "Backed by statistical analysis and supporting data"
                 return result
             else:
-                if est_shelf_life and est_shelf_life >= (x_months + 3):
-                    result["Proposed Shelf Life (Y)"] = x_months + 3
-                    result["Decision"] = "Up to +3 M"
-                    result["Notes"] = "Based on relevant supporting data and regression supports this extrapolation"
-                else:
-                    result["Decision"] = "No extrapolation"
-                    result["Notes"] = "Regression does not support the proposed +3 M extrapolation"
-                return result
+                 result["Proposed Shelf Life (Y)"] = x_months + 3
+                 result["Decision"] = "Up to +3 M"
+                 result["Notes"] = "Based on relevant supporting data and regression supports this extrapolation"
+            else:
+                 result["Decision"] = "No extrapolation"
+                 result["Notes"] = "Regression does not support the proposed +3 M extrapolation"
+                 return result
 
     if not sig_change_6m_accel:
         if not change_long_term_data:
