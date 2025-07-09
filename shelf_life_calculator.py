@@ -75,25 +75,21 @@ spec_limit = st.number_input("Specification Limit", value=85.0)
 
 # Flexible input
 month_labels = ["0M", "1M", "3M", "6M", "9M", "12M", "18M", "24M", "36M", "48M"]
-month_values = []
-time_values = [0, 1, 3, 6, 9, 12, 18, 24, 36, 48]
+month_times = [0, 1, 3, 6, 9, 12, 18, 24, 36, 48]
+time_values = []
+value_inputs = []
 
 for i, label in enumerate(month_labels):
     val = st.number_input(f"{label} Value", value=0.0, step=0.1, key=f"month_{i}")
     if val > 0:
-        month_values.append(val)
-    else:
-        time_values[i] = None
-
-# Filter valid data
-valid_data = [(t, v) for t, v in zip(time_values, month_values) if t is not None]
+        time_values.append(month_times[i])
+        value_inputs.append(val)
 
 if st.button("📊 Calculate Shelf-Life"):
-    if len(valid_data) < 3:
-        st.error("At least 3 time points with values are required for regression.")
+    if len(time_values) < 3:
+        st.error("At least 3 valid time points are required for regression.")
     else:
-        times, values = zip(*valid_data)
-        df = pd.DataFrame({"Time": times, "Value": values})
+        df = pd.DataFrame({"Time": time_values, "Value": value_inputs})
         X = df["Time"].values.reshape(-1, 1)
         y = df["Value"].values
         model = LinearRegression()
@@ -121,10 +117,17 @@ if st.button("📊 Calculate Shelf-Life"):
             st.warning("Cannot calculate shelf-life: slope is zero.")
 
         st.markdown("### 🧮 ICH Logic Result")
-        x_max = max(times)
+
+        # Determine last passing time point
+        passing_times = [t for t, v in zip(time_values, value_inputs) if v >= spec_limit]
+        if not passing_times:
+            x_base = 0
+        else:
+            x_base = max(passing_times)
+
         stats = r2 >= 0.95
         ich_result = ich_shelf_life_estimation(
-            x_months=x_max,
+            x_months=x_base,
             sig_change_acc=sig_acc,
             sig_change_int=sig_int,
             stored_refrigerated=refrig,
@@ -133,6 +136,7 @@ if st.button("📊 Calculate Shelf-Life"):
         )
 
         ich_result["Regression Shelf Life (Y)"] = round(est_shelf_life, 2) if est_shelf_life else "N/A"
+
         for k, v in ich_result.items():
             st.write(f"**{k}**: {v}")
 
@@ -153,12 +157,13 @@ if st.button("📊 Calculate Shelf-Life"):
 
             with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as f:
                 pdf.output(f.name)
-                st.download_button(
-                    label="📄 Download Report",
-                    data=open(f.name, "rb").read(),
-                    file_name="ICH_Shelf_Life_Report.pdf",
-                    mime="application/pdf"
-                )
+                with open(f.name, "rb") as file:
+                    st.download_button(
+                        label="📄 Download Report",
+                        data=file.read(),
+                        file_name="ICH_Shelf_Life_Report.pdf",
+                        mime="application/pdf"
+                    )
 
 
 
