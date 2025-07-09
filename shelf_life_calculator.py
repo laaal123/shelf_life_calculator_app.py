@@ -163,7 +163,7 @@ if st.button("\U0001F4CA Calculate Shelf-Life"):
         )
 
         result["Regression Shelf Life (Y)"] = round(est_shelf_life, 2) if est_shelf_life else "N/A"
-       ...
+
         result["R²"] = f"{r2:.2f}"
         # Add detailed interpretation based on decision
         if "Decision" in result:
