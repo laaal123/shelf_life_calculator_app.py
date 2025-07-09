@@ -72,7 +72,11 @@ def determine_shelf_life(
         result["Decision"] = "No extrapolation - freezer storage"
         result["Notes"] = "Use long-term data only"
         return result
-
+    if sig_change_6m_accel and sig_change_intermediate:
+        result["Decision"] = "No extrapolation - freezer storage"
+        result["Notes"] = "Use long-term data only"
+        return result
+    
     if sig_change_6m_accel:
         if sig_change_3m_accel:
             if long_term_stats_amenable and stats_performed and supporting_data_available:
