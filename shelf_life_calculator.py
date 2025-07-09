@@ -42,7 +42,9 @@ long_term_stats_amenable = st.checkbox("\U0001F4C8 Long-term Stats Amenable")
 stats_performed = st.checkbox("\U0001F4CA Stats Performed")
 supporting_data_available = st.checkbox("\U0001F4C4 Supporting Data Available")
 data_trend_low_variability = st.checkbox("\U0001F4C9 Data Trend Low Variability")
-no_change_accel = st.checkbox("No Change in Accelerated")
+no_change_accel = st.checkbox("\U0001F4C9 No Change in Accelerated")
+not_stored_refrigerated= st.checkbox("\u2744\ufe0f Not Stored Refrigerated")
+
 
 st.markdown("### \U0001F9EE Stability Data Entry")
 spec_limit = st.number_input("Specification Limit", value=85.0)
@@ -69,7 +71,7 @@ def determine_shelf_life(
         return result
    if sig_change_6m_accel:
         if sig_change_3m_accel:
-            if not stored_refrigerated:
+            if not_stored_refrigerated:
                 if long_term_stats_amenable and stats_performed:
                     if supporting_data_available:
                         result["Proposed Shelf Life (Y)"] = min(x_months * 1.5, x_months + 6)
