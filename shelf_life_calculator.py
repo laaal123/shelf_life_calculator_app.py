@@ -75,7 +75,8 @@ def determine_shelf_life(
 ):
     result = {}
     if stored_frozen:
-        result["Decision"] = "x"
+        result["Proposed Shelf Life (Y)"] = min(x_months * 1)
+        result["Decision"] = "No extrapolation - freezer storage"
         result["Notes"] = "No extrapolation - freezer storage"
         return result
     if sig_change_6m_accel and sig_change_intermediate:
