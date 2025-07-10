@@ -75,6 +75,7 @@ def determine_shelf_life(
 ):
     result = {}
     if stored_frozen:
+        result["Proposed Shelf Life (Y)"] = min(x_months * 1.5, x_months + 6)
         result["Decision"] = "No extrapolation - freezer storage"
         result["Notes"] = "No extrapolation - freezer storage"
         return result
