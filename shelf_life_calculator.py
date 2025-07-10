@@ -211,7 +211,7 @@ if st.button("📊 Calculate Shelf Life"):
             no_stats_performed
         )
 
-        result["Regression Shelf Life (Y)"] = round(est_shelf_life, 2) if est_shelf_life else "N/A"
+        result["Regression Shelf Life (M)"] = round(est_shelf_life, 2) if est_shelf_life else "N/A"
         result["R²"] = f"{r2:.2f}"
 
         result["Product Name"] = product_name
