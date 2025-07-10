@@ -74,15 +74,20 @@ def determine_shelf_life(
     x_months, est_shelf_life, change_long_term_data
 ):
     result = {}
-    if stored_frozen:
-        result["Proposed Shelf Life (Y)"] = min(x_months * 1.5, x_months + 6)
+      if stored_frozen:
+        result["Proposed Shelf Life (Y)"] = round(x_months / 12, 2)  
         result["Decision"] = "No extrapolation - freezer storage"
-        result["Notes"] = "No extrapolation - freezer storage"
+        result["Notes"] = f"Shelf-life limited to available long-term data: {x_months} months"
+        result["Decision Tree Shelf Life (M)"] = x_months
         return result
+
     if sig_change_6m_accel and sig_change_intermediate:
+        result["Proposed Shelf Life (Y)"] = round(x_months / 12, 2)
         result["Decision"] = "No extrapolation - freezer storage"
-        result["Notes"] = "Use long-term data only"
+        result["Notes"] = f"Significant change at accelerated & intermediate; use long-term data only: {x_months} months"
+        result["Decision Tree Shelf Life (M)"] = x_months
         return result
+        
     if sig_change_6m_accel and no_sig_change_intermediate and long_term_stats_amenable and stats_performed:
         result["Proposed Shelf Life (Y)"] = min(x_months * 1.5, x_months + 6)
         result["Decision"] = "Up to 1.5x (max +6 M)"
